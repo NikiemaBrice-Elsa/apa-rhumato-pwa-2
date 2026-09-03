@@ -1,0 +1,26 @@
+-- Sprint 15 : corrige un bug découvert en écrivant le script de vérification
+-- RLS complet de ce sprint (infra/db/scripts/verify_rls.sh).
+--
+-- `audit_logs.entity_id` (migration 0001) était typé `uuid`. Or plusieurs
+-- routes admin journalisent un identifiant TEXTE plutôt qu'un UUID généré
+-- par la base :
+--   - /api/admin/clinical-rules(/[id])  -> rule_id (ex. "LBP_RED_FLAG_...")
+--   - /api/admin/pathologies/[id]        -> code pathologie (ex. "LOMBALGIE_COMMUNE")
+--   - /api/admin/subscription-plans/[planCode] -> plan_code (ex. "premium_monthly")
+--
+-- Le client Supabase (`@supabase/supabase-js`) ne lève PAS d'exception par
+-- défaut sur une erreur d'insertion — il renvoie `{ data: null, error }`.
+-- Comme `recordAuditLog` (apps/web/src/lib/auditLog.ts) n'inspectait pas ce
+-- champ `error`, l'incompatibilité de type provoquait un échec d'insertion
+-- SILENCIEUX à chaque appel pour ces trois familles de routes : la création
+-- ou la modification d'une règle clinique, la modification d'une pathologie
+-- et la modification d'un plan d'abonnement — pourtant parmi les actions
+-- les plus sensibles du système — n'étaient en réalité JAMAIS journalisées
+-- malgré un code qui semblait le faire. C'est exactement ce que le §79
+-- interdit : « Ne jamais cacher une erreur. »
+--
+-- Corrigé ici (colonne élargie à `text`, qui accepte aussi bien un UUID
+-- qu'un code métier) ET dans apps/web/src/lib/auditLog.ts (qui journalise
+-- désormais explicitement toute erreur d'insertion plutôt que de l'ignorer,
+-- pour qu'une régression future de ce type ne redevienne jamais silencieuse).
+alter table public.audit_logs alter column entity_id type text using entity_id::text;

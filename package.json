@@ -1,0 +1,19 @@
+{
+  "name": "apa-rhumato-pwa",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Application PWA d'Activités Physiques Adaptées à la Santé en Rhumatologie — monorepo",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace apps/web",
+    "build": "npm run build --workspace apps/web",
+    "test": "npm run test --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present"
+  },
+  "engines": {
+    "node": ">=18.18.0"
+  }
+}

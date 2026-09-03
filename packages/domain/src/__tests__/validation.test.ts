@@ -1,0 +1,251 @@
+import { describe, expect, it } from "vitest";
+import {
+  signUpSchema,
+  patientProfileSchema,
+  startSessionSchema,
+  completeSessionSchema,
+  measurementSchema,
+  reportRequestSchema,
+  exerciseUpsertSchema,
+  functionalCapacityAssessmentSchema,
+} from "../validation";
+
+describe("signUpSchema (§12 — création de compte)", () => {
+  const base = {
+    firstName: "Aïcha",
+    password: "motdepasse123",
+    consentTerms: true as const,
+    consentDataProcessing: true as const,
+  };
+
+  it("accepte un email seul", () => {
+    const result = signUpSchema.safeParse({ ...base, email: "aicha@example.com" });
+    expect(result.success).toBe(true);
+  });
+
+  it("accepte un téléphone seul", () => {
+    const result = signUpSchema.safeParse({ ...base, phone: "+22670000000" });
+    expect(result.success).toBe(true);
+  });
+
+  it("refuse l'absence d'email ET de téléphone", () => {
+    const result = signUpSchema.safeParse(base);
+    expect(result.success).toBe(false);
+  });
+
+  it("refuse un consentement CGU manquant", () => {
+    const result = signUpSchema.safeParse({
+      ...base,
+      email: "aicha@example.com",
+      consentTerms: false,
+    });
+    expect(result.success).toBe(false);
+  });
+});
+
+describe("patientProfileSchema (§13 — profil patient)", () => {
+  it("accepte un profil minimal valide", () => {
+    const result = patientProfileSchema.safeParse({
+      mainPathology: "ARTHROSE_GENOU",
+      objectives: ["AMELIORER_MOBILITE"],
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("refuse une douleur hors de l'échelle 0-10 (§34)", () => {
+    const result = patientProfileSchema.safeParse({ painBaseline: 15 });
+    expect(result.success).toBe(false);
+  });
+
+  it("refuse une pathologie hors des six modules V1 (§7)", () => {
+    const result = patientProfileSchema.safeParse({ mainPathology: "FIBROMYALGIE" });
+    expect(result.success).toBe(false);
+  });
+});
+
+describe("startSessionSchema (§28 étape 2 — vérification rapide)", () => {
+  it("accepte un démarrage minimal (pathologie seule)", () => {
+    const result = startSessionSchema.safeParse({ pathology: "ARTHROSE_GENOU" });
+    expect(result.success).toBe(true);
+  });
+
+  it("refuse une douleur hors de l'échelle 0-10", () => {
+    const result = startSessionSchema.safeParse({ pathology: "ARTHROSE_GENOU", douleurAvant: 11 });
+    expect(result.success).toBe(false);
+  });
+
+  it("refuse une pathologie hors des six modules V1 (§7)", () => {
+    const result = startSessionSchema.safeParse({ pathology: "FIBROMYALGIE" });
+    expect(result.success).toBe(false);
+  });
+});
+
+describe("completeSessionSchema (§69 — feedback après séance)", () => {
+  it("accepte une séance non réalisée (abandon) sans détail", () => {
+    const result = completeSessionSchema.safeParse({ realisee: false });
+    expect(result.success).toBe(true);
+  });
+
+  it("accepte une séance réalisée avec feedback complet", () => {
+    const result = completeSessionSchema.safeParse({
+      realisee: true,
+      difficulte: "adaptee",
+      douleurApres: 3,
+      fatigueApres: 4,
+      ressenti: "Séance plutôt bien vécue.",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("refuse une difficulté renseignée si la séance n'a pas été réalisée", () => {
+    const result = completeSessionSchema.safeParse({ realisee: false, difficulte: "facile" });
+    expect(result.success).toBe(false);
+  });
+
+  it("refuse une douleur après séance hors de l'échelle 0-10", () => {
+    const result = completeSessionSchema.safeParse({ realisee: true, douleurApres: 12 });
+    expect(result.success).toBe(false);
+  });
+});
+
+describe("measurementSchema (§35-38 — Sprint 8)", () => {
+  it("accepte une saisie de poids valide", () => {
+    const result = measurementSchema.safeParse({ measurementType: "poids", weightKg: 72.5 });
+    expect(result.success).toBe(true);
+  });
+
+  it("accepte une saisie de tour de taille valide", () => {
+    const result = measurementSchema.safeParse({ measurementType: "tour_de_taille", waistCircumferenceCm: 90 });
+    expect(result.success).toBe(true);
+  });
+
+  it("accepte une tension artérielle valide, fréquence cardiaque facultative", () => {
+    const result = measurementSchema.safeParse({
+      measurementType: "tension_arterielle",
+      systolicMmhg: 120,
+      diastolicMmhg: 80,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("accepte une glycémie valide avec son unité", () => {
+    const result = measurementSchema.safeParse({ measurementType: "glycemie", glycemiaValue: 1.1, glycemiaUnit: "g_l" });
+    expect(result.success).toBe(true);
+  });
+
+  it("refuse un poids sans le champ weightKg (pas de mélange de champs entre types)", () => {
+    const result = measurementSchema.safeParse({ measurementType: "poids", waistCircumferenceCm: 90 });
+    expect(result.success).toBe(false);
+  });
+
+  it("refuse une glycémie sans unité", () => {
+    const result = measurementSchema.safeParse({ measurementType: "glycemie", glycemiaValue: 1.1 });
+    expect(result.success).toBe(false);
+  });
+
+  it("refuse un type de mesure inconnu", () => {
+    const result = measurementSchema.safeParse({ measurementType: "taille", value: 175 });
+    expect(result.success).toBe(false);
+  });
+});
+
+describe("reportRequestSchema (§40, §71 — Sprint 10)", () => {
+  it("accepte une demande minimale (pathologie seule)", () => {
+    const result = reportRequestSchema.safeParse({ pathology: "ARTHROSE_GENOU" });
+    expect(result.success).toBe(true);
+  });
+
+  it("accepte une période et une note utilisateur", () => {
+    const result = reportRequestSchema.safeParse({
+      pathology: "ARTHROSE_GENOU",
+      from: "2026-07-01T00:00:00Z",
+      to: "2026-07-31T23:59:59Z",
+      userNote: "Tout va bien.",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("refuse une pathologie hors des six modules V1 (§7)", () => {
+    const result = reportRequestSchema.safeParse({ pathology: "FIBROMYALGIE" });
+    expect(result.success).toBe(false);
+  });
+});
+
+/** §28, réf. B8 (20/08/2026), Sprint 18. */
+describe("exerciseUpsertSchema — champ phase (§28, réf. B8)", () => {
+  const base = { name: "Exercice test", shortDescription: "Description", category: "mobilite" as const };
+
+  it("accepte l'absence de phase (non classé)", () => {
+    const result = exerciseUpsertSchema.safeParse(base);
+    expect(result.success).toBe(true);
+  });
+
+  it("accepte chacune des 3 phases valides", () => {
+    for (const phase of ["echauffement", "principal", "retour_au_calme"] as const) {
+      const result = exerciseUpsertSchema.safeParse({ ...base, phase });
+      expect(result.success).toBe(true);
+    }
+  });
+
+  it("refuse une phase hors de la liste fermée", () => {
+    const result = exerciseUpsertSchema.safeParse({ ...base, phase: "milieu_de_seance" });
+    expect(result.success).toBe(false);
+  });
+});
+
+/** §33, réf. B10 (20/08/2026), Sprint 18. */
+describe("functionalCapacityAssessmentSchema (§33, réf. B10)", () => {
+  it("accepte un PSFS avec 3 activités (minimum méthodologique)", () => {
+    const result = functionalCapacityAssessmentSchema.safeParse({
+      instrument: "psfs",
+      activities: [
+        { activityLabel: "Monter les escaliers", difficultyScore: 6 },
+        { activityLabel: "Porter les courses", difficultyScore: 4 },
+        { activityLabel: "Jardiner", difficultyScore: 8 },
+      ],
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("refuse un PSFS avec moins de 3 activités", () => {
+    const result = functionalCapacityAssessmentSchema.safeParse({
+      instrument: "psfs",
+      activities: [{ activityLabel: "Monter les escaliers", difficultyScore: 6 }],
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("refuse un PSFS avec plus de 5 activités", () => {
+    const result = functionalCapacityAssessmentSchema.safeParse({
+      instrument: "psfs",
+      activities: Array.from({ length: 6 }, (_, i) => ({ activityLabel: `Activité ${i}`, difficultyScore: 5 })),
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("refuse un score de difficulté hors de l'échelle 0-10", () => {
+    const result = functionalCapacityAssessmentSchema.safeParse({
+      instrument: "psfs",
+      activities: [
+        { activityLabel: "A", difficultyScore: 11 },
+        { activityLabel: "B", difficultyScore: 5 },
+        { activityLabel: "C", difficultyScore: 5 },
+      ],
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("accepte un score PROMIS déjà obtenu ailleurs (T-score + erreur standard)", () => {
+    const result = functionalCapacityAssessmentSchema.safeParse({
+      instrument: "promis_pf_cat",
+      promisTScore: 45.2,
+      promisStandardError: 3.1,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("accepte un score PROMIS sans erreur standard (facultative)", () => {
+    const result = functionalCapacityAssessmentSchema.safeParse({ instrument: "promis_pf_cat", promisTScore: 50 });
+    expect(result.success).toBe(true);
+  });
+});

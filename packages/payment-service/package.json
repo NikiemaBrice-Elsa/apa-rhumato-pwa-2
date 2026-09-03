@@ -1,0 +1,14 @@
+{
+  "name": "@apa/payment-service",
+  "private": true,
+  "version": "0.0.0",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.3",
+    "vitest": "^2.1.9"
+  }
+}
