@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { getDictionary } from "@/lib/i18n";
 import { Field } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
@@ -53,6 +54,10 @@ export function LoginForm() {
       <Field label={dict.auth.password} htmlFor="password">
         <input id="password" name="password" type="password" required className="input" autoComplete="current-password" />
       </Field>
+
+      <Link href="/mot-de-passe-oublie" className="text-right text-sm font-medium text-primary-700 underline">
+        {dict.auth.forgotPasswordLink}
+      </Link>
 
       {error && (
         <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">

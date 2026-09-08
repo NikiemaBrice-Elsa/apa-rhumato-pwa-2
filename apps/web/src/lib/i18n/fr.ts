@@ -23,6 +23,23 @@ const fr = {
     submitLogin: "Se connecter",
     haveAccount: "Vous avez déjà un compte ?",
     noAccount: "Pas encore de compte ?",
+    forgotPasswordLink: "Mot de passe oublié ?",
+    forgotPasswordTitle: "Mot de passe oublié",
+    forgotPasswordInstructions:
+      "Indiquez l'adresse email de votre compte : nous vous enverrons un lien pour choisir un nouveau mot de passe.",
+    submitForgotPassword: "Envoyer le lien",
+    forgotPasswordSuccess:
+      "Si un compte existe avec cette adresse, un email contenant un lien de réinitialisation vient de lui être envoyé. Pensez à vérifier vos courriers indésirables.",
+    backToLogin: "Retour à la connexion",
+    resetPasswordTitle: "Choisir un nouveau mot de passe",
+    newPassword: "Nouveau mot de passe",
+    confirmPassword: "Confirmer le mot de passe",
+    submitResetPassword: "Enregistrer le nouveau mot de passe",
+    resetPasswordSuccess: "Votre mot de passe a été mis à jour. Vous pouvez maintenant vous connecter.",
+    passwordMismatch: "Les deux mots de passe ne correspondent pas.",
+    resetLinkExpired:
+      "Ce lien de réinitialisation n'est plus valable (il a expiré ou a déjà été utilisé). Demandez-en un nouveau ci-dessous.",
+    resetLinkChecking: "Vérification du lien en cours…",
   },
   profile: {
     title: "Mon profil",
