@@ -1,21 +1,23 @@
 import type { Config } from "tailwindcss";
 
-// Palette "médicale, moderne, rassurante" (§49) — à ajuster lors d'une passe design dédiée.
+// Palette "médicale, moderne, rassurante" (§49) — bleu APAS Rhumato, alignée
+// sur le logo transmis le 07/09/2026 (retour recette, remplace le teal
+// provisoire du Sprint 2).
 const config: Config = {
   content: ["./src/**/*.{ts,tsx}"],
   theme: {
     extend: {
       colors: {
         primary: {
-          50: "#eef4f6",
-          100: "#d7e6ea",
-          300: "#8fb9c2",
-          500: "#3f7f8c",
-          700: "#265961",
-          900: "#173940",
+          50: "#eaf1fb",
+          100: "#d2e3f7",
+          300: "#86b2ea",
+          500: "#2e6fd6",
+          700: "#1e4e9e",
+          900: "#16355e",
         },
         accent: {
-          500: "#2e6f6e",
+          500: "#2f9e6b",
         },
       },
       fontSize: {

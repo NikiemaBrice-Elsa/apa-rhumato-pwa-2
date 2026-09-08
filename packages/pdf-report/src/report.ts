@@ -1,4 +1,5 @@
 import PDFDocument from "pdfkit";
+import { LOGO_PNG_BASE64 } from "./assets/logo";
 
 /**
  * Génération du rapport utilisateur (§40 « Rapport PDF », §71 « Rapport
@@ -83,7 +84,7 @@ function formatDate(iso: string): string {
 
 function sectionTitle(doc: PDFKit.PDFDocument, title: string) {
   doc.moveDown(1);
-  doc.fontSize(14).fillColor("#0f4c5c").text(title, { underline: true });
+  doc.fontSize(14).fillColor("#1e4e9e").text(title, { underline: true });
   doc.fontSize(11).fillColor("#000000");
   doc.moveDown(0.3);
 }
@@ -110,8 +111,19 @@ export function buildPatientReportPdf(data: PatientReportData): Promise<Buffer> 
 
     const fullName = [data.identity.firstName, data.identity.lastName].filter(Boolean).join(" ");
 
+    // Logo (retour recette du 07/09/2026 : « à afficher partout, y compris
+    // sur les rapports PDF »), centré en tête de document. Position/y fixés
+    // explicitement après l'image : pdfkit n'avance pas toujours le curseur
+    // de la même façon selon qu'on lui donne des coordonnées explicites.
+    const logoBuffer = Buffer.from(LOGO_PNG_BASE64, "base64");
+    const logoSize = 60;
+    const logoTop = doc.y;
+    const logoX = (doc.page.width - logoSize) / 2;
+    doc.image(logoBuffer, logoX, logoTop, { width: logoSize, height: logoSize });
+    doc.y = logoTop + logoSize + 10;
+
     // Titre.
-    doc.fontSize(18).fillColor("#0f4c5c").text("Rapport de suivi APA", { align: "center" });
+    doc.fontSize(18).fillColor("#1e4e9e").text("Rapport de suivi APA", { align: "center" });
     doc.moveDown(0.5);
     disclaimerBlock(doc);
 

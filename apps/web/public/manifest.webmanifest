@@ -4,8 +4,8 @@
   "description": "Accompagnement numérique à l'activité physique adaptée en rhumatologie.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#eef4f6",
-  "theme_color": "#265961",
+  "background_color": "#eaf1fb",
+  "theme_color": "#1e4e9e",
   "orientation": "portrait",
   "lang": "fr",
   "icons": [
