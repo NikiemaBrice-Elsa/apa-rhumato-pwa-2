@@ -125,6 +125,21 @@ export function computeSubscriptionExpiry(startedAt: Date, billingPeriod: Billin
 }
 
 /**
+ * Nombre de jours entiers restant avant `expiresAt` (arrondi au jour
+ * supérieur — un abonnement qui expire dans 9h30 doit afficher « 1 jour »,
+ * pas « 0 »). Retourne `null` en l'absence de date d'expiration (abonnement
+ * gratuit, ou premium sans expiration définie). Une valeur négative ou nulle
+ * signifie que l'abonnement est déjà expiré. Fonction pure — `now` est un
+ * paramètre explicite (même discipline que `computeSubscriptionExpiry`),
+ * jamais `new Date()` interne, pour rester testable.
+ */
+export function getSubscriptionDaysRemaining(expiresAt: string | null | undefined, now: Date): number | null {
+  if (!expiresAt) return null;
+  const diffMs = new Date(expiresAt).getTime() - now.getTime();
+  return Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+}
+
+/**
  * §48 : cohérence tarifaire d'un plan — le plan `free` ne doit jamais
  * porter de prix ni de périodicité ; un plan premium doit toujours porter
  * un prix strictement positif ET une périodicité. Utilisé côté administration

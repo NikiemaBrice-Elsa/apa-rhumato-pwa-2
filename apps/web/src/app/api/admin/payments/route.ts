@@ -12,9 +12,19 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const status = searchParams.get("status");
 
+  // Astuce d'embed explicite `users!payments_user_id_fkey(...)` indispensable
+  // ici : `payments` porte DEUX clés étrangères vers `users` (`user_id` et
+  // `recorded_by`, migration 0011), ce qui rend l'embed automatique
+  // `users(...)` ambigu pour PostgREST (erreur « more than one relationship
+  // was found »). Cette route échouait donc silencieusement en production
+  // (§erreur découverte le 09/09/2026 : les paiements en attente
+  // n'apparaissaient jamais dans « Paiements à vérifier », alors que les
+  // lignes existaient bien dans `payments` — seule la requête d'affichage
+  // était cassée). `subscriptions` n'a qu'une seule FK vers `users`, donc sa
+  // route admin équivalente n'a jamais eu ce problème.
   let query = supabase
     .from("payments")
-    .select("*, users(first_name, last_name, email)")
+    .select("*, users!payments_user_id_fkey(first_name, last_name, email)")
     .order("created_at", { ascending: false });
 
   if (status) {

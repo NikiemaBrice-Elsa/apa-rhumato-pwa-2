@@ -1,7 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { PAYMENT_PROVIDER_LABELS_FR, type SubscriptionPlanCode, type PaymentProviderCode } from "@apa/domain";
+import {
+  PAYMENT_PROVIDER_LABELS_FR,
+  SUBSCRIPTION_PLAN_LABELS_FR,
+  type SubscriptionPlanCode,
+  type PaymentProviderCode,
+} from "@apa/domain";
 import { Button } from "@/components/ui/Button";
 import { Field } from "@/components/ui/Field";
 
@@ -54,6 +59,13 @@ function userLabel(u: UserRef | null) {
   return `${u.first_name} ${u.last_name} (${u.email})`;
 }
 
+const SUBSCRIPTION_STATUS_LABELS_FR: Record<SubscriptionRow["status"], string> = {
+  pending: "En attente de paiement",
+  active: "Actif",
+  expired: "Expiré",
+  canceled: "Annulé",
+};
+
 function planFormFromRow(p: PlanRow) {
   return {
     planCode: p.plan_code,
@@ -88,23 +100,29 @@ export function AdminSubscriptions() {
   async function reloadPlans() {
     const res = await fetch("/api/admin/subscription-plans");
     const data = await res.json();
-    if (res.ok) setPlans(data.plans ?? []);
-    else setError(data.message ?? "Une erreur est survenue.");
+    if (res.ok) {
+      setPlans(data.plans ?? []);
+      setError(null);
+    } else setError(data.message ?? "Une erreur est survenue.");
   }
 
   async function reloadSubscriptions() {
     const res = await fetch("/api/admin/subscriptions");
     const data = await res.json();
-    if (res.ok) setSubscriptions(data.subscriptions ?? []);
-    else setError(data.message ?? "Une erreur est survenue.");
+    if (res.ok) {
+      setSubscriptions(data.subscriptions ?? []);
+      setError(null);
+    } else setError(data.message ?? "Une erreur est survenue.");
   }
 
   async function reloadPayments() {
     const url = paymentFilter === "pending" ? "/api/admin/payments?status=pending" : "/api/admin/payments";
     const res = await fetch(url);
     const data = await res.json();
-    if (res.ok) setPayments(data.payments ?? []);
-    else setError(data.message ?? "Une erreur est survenue.");
+    if (res.ok) {
+      setPayments(data.payments ?? []);
+      setError(null);
+    } else setError(data.message ?? "Une erreur est survenue.");
   }
 
   useEffect(() => {
@@ -288,9 +306,22 @@ export function AdminSubscriptions() {
         ))}
       </section>
 
-      <section className="flex flex-col gap-3">
+      <section className="flex flex-col gap-3 rounded-xl border-2 border-primary-500 bg-primary-50 p-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-primary-900">Paiements à vérifier (§47)</h2>
+          <div>
+            <h2 className="text-lg font-semibold text-primary-900">
+              Paiements à vérifier (§47){" "}
+              {payments.filter((p) => p.status === "pending").length > 0 && (
+                <span className="ml-1 rounded-full bg-orange-500 px-2 py-0.5 text-xs font-semibold text-white">
+                  {payments.filter((p) => p.status === "pending").length}
+                </span>
+              )}
+            </h2>
+            <p className="text-xs text-primary-600">
+              C&apos;est ICI qu&apos;un paiement déclaré par un patient se confirme — la confirmation active
+              automatiquement son abonnement (aucune action supplémentaire à faire dans « Souscriptions » ci-dessous).
+            </p>
+          </div>
           <select
             value={paymentFilter}
             onChange={(e) => setPaymentFilter(e.target.value as "pending" | "all")}
@@ -300,7 +331,13 @@ export function AdminSubscriptions() {
             <option value="all">Tous</option>
           </select>
         </div>
-        {payments.length === 0 && <p className="text-sm text-primary-500">Aucun paiement à afficher.</p>}
+        {payments.length === 0 && (
+          <p className="text-sm text-primary-500">
+            Aucun paiement à afficher pour l&apos;instant. Un paiement apparaît ici dès qu&apos;un patient déclare
+            avoir effectué son transfert Mobile Money (référence de transaction saisie depuis son écran « Mon
+            abonnement ») — pas au moment où il choisit simplement un plan.
+          </p>
+        )}
         {payments.map((p) => (
           <div key={p.id} className="rounded-xl border border-primary-200 bg-white p-4">
             <p className="font-medium text-primary-900">
@@ -317,7 +354,7 @@ export function AdminSubscriptions() {
                   disabled={payingId === p.id}
                   onClick={() => confirmPayment(p.id, "confirmed")}
                 >
-                  Confirmer (transfert vérifié)
+                  Confirmer le paiement (active l&apos;abonnement)
                 </Button>
                 <Button
                   type="button"
@@ -336,13 +373,30 @@ export function AdminSubscriptions() {
 
       <section className="flex flex-col gap-3">
         <h2 className="text-lg font-semibold text-primary-900">Souscriptions</h2>
+        <p className="text-xs text-primary-500">
+          Liste de suivi uniquement — aucune action possible ici. Pour activer une souscription « en attente de
+          paiement », utilisez la section « Paiements à vérifier » ci-dessus.
+        </p>
         {subscriptions.length === 0 && <p className="text-sm text-primary-500">Aucune souscription enregistrée.</p>}
-        {subscriptions.map((s) => (
-          <div key={s.id} className="rounded-xl border border-primary-200 bg-white p-3 text-sm text-primary-700">
-            {userLabel(s.users)} · {s.plan_code} · {s.status}
-            {s.expires_at ? ` · expire le ${formatDate(s.expires_at)}` : ""}
-          </div>
-        ))}
+        {subscriptions.map((s) => {
+          const linkedPayment = payments.find((p) => p.subscription_id === s.id && p.status === "pending");
+          return (
+            <div key={s.id} className="rounded-xl border border-primary-200 bg-white p-3 text-sm text-primary-700">
+              <p>
+                {userLabel(s.users)} · {SUBSCRIPTION_PLAN_LABELS_FR[s.plan_code] ?? s.plan_code} ·{" "}
+                {SUBSCRIPTION_STATUS_LABELS_FR[s.status]}
+                {s.expires_at ? ` · expire le ${formatDate(s.expires_at)}` : ""}
+              </p>
+              {s.status === "pending" && (
+                <p className="mt-1 text-xs text-primary-500">
+                  {linkedPayment
+                    ? "→ Un paiement est déclaré pour cette souscription : voir « Paiements à vérifier » ci-dessus pour l'activer."
+                    : "Aucun paiement déclaré pour l'instant par le patient — rien à faire tant qu'il n'a pas soumis sa référence de transaction."}
+                </p>
+              )}
+            </div>
+          );
+        })}
       </section>
     </div>
   );

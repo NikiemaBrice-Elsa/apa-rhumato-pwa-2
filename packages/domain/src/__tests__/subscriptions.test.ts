@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { isSubscriptionCurrentlyActive, computeSubscriptionExpiry, isValidPlanPricing } from "../subscriptions";
+import {
+  isSubscriptionCurrentlyActive,
+  computeSubscriptionExpiry,
+  isValidPlanPricing,
+  getSubscriptionDaysRemaining,
+} from "../subscriptions";
 
 describe("isSubscriptionCurrentlyActive (§48)", () => {
   const now = new Date("2026-08-20T12:00:00Z");
@@ -47,6 +52,28 @@ describe("computeSubscriptionExpiry", () => {
     const originalTime = start.getTime();
     computeSubscriptionExpiry(start, "monthly");
     expect(start.getTime()).toBe(originalTime);
+  });
+});
+
+describe("getSubscriptionDaysRemaining", () => {
+  const now = new Date("2026-09-09T12:00:00Z");
+
+  it("retourne null en l'absence de date d'expiration", () => {
+    expect(getSubscriptionDaysRemaining(null, now)).toBeNull();
+    expect(getSubscriptionDaysRemaining(undefined, now)).toBeNull();
+  });
+
+  it("arrondit au jour supérieur", () => {
+    // 9h30 restantes → 1 jour, pas 0
+    expect(getSubscriptionDaysRemaining("2026-09-09T21:30:00Z", now)).toBe(1);
+  });
+
+  it("compte les jours pleins restants", () => {
+    expect(getSubscriptionDaysRemaining("2026-09-19T12:00:00Z", now)).toBe(10);
+  });
+
+  it("retourne une valeur négative ou nulle si déjà expiré", () => {
+    expect(getSubscriptionDaysRemaining("2026-09-01T12:00:00Z", now)).toBeLessThanOrEqual(0);
   });
 });
 

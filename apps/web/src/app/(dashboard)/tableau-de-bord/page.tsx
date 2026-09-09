@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { isSubscriptionCurrentlyActive, getSubscriptionDaysRemaining } from "@apa/domain";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { PlannedSessionCard } from "@/components/dashboard/PlannedSessionCard";
+import { SubscriptionStatusCard } from "@/components/dashboard/SubscriptionStatusCard";
 
 /**
  * Tableau de bord utilisateur (§33) — écran temporaire pour le Sprint 2.
@@ -31,6 +33,26 @@ export default async function DashboardPage() {
     .eq("user_id", user!.id)
     .eq("read", false);
 
+  // §47, §48 : dernière souscription connue, pour la carte "Mon abonnement"
+  // (durée restante + alerte à 10 jours ou moins de l'échéance, demande du
+  // 09/09/2026). Même logique que /api/subscription : recalculée à la
+  // demande depuis `subscriptions`, jamais un statut supposé.
+  const { data: latestSubscription } = await supabase
+    .from("subscriptions")
+    .select("plan_code, status, expires_at")
+    .eq("user_id", user!.id)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const now = new Date();
+  const isCurrentlyActive = latestSubscription
+    ? isSubscriptionCurrentlyActive({ status: latestSubscription.status, expiresAt: latestSubscription.expires_at }, now)
+    : false;
+  const daysRemaining = latestSubscription
+    ? getSubscriptionDaysRemaining(latestSubscription.expires_at, now)
+    : null;
+
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col gap-4 px-6 py-12">
       <h1 className="text-2xl font-semibold text-primary-900">
@@ -39,6 +61,13 @@ export default async function DashboardPage() {
       <p className="text-primary-700">
         Votre compte et votre profil sont enregistrés.
       </p>
+      <SubscriptionStatusCard
+        planCode={latestSubscription?.plan_code ?? null}
+        status={latestSubscription?.status ?? null}
+        isCurrentlyActive={isCurrentlyActive}
+        daysRemaining={daysRemaining}
+        expiresAt={latestSubscription?.expires_at ?? null}
+      />
       <PlannedSessionCard />
       <Link
         href="/evaluation"

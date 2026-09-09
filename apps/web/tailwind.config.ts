@@ -24,6 +24,20 @@ const config: Config = {
         // Textes suffisamment grands par défaut (§50 accessibilité)
         base: ["1.05rem", "1.6"],
       },
+      keyframes: {
+        // Alerte "abonnement bientôt expiré" (tableau de bord patient,
+        // demande du 09/09/2026) : un léger clignotement de fond + bordure,
+        // volontairement lent (2s) pour rester perceptible sans être
+        // agressif — désactivé pour les utilisateurs "prefers-reduced-motion"
+        // via globals.css (§50 accessibilité).
+        "subscription-blink": {
+          "0%, 100%": { backgroundColor: "#fff7ed", borderColor: "#fdba74" },
+          "50%": { backgroundColor: "#ffedd5", borderColor: "#f97316" },
+        },
+      },
+      animation: {
+        "subscription-blink": "subscription-blink 2s ease-in-out infinite",
+      },
     },
   },
   plugins: [],
