@@ -36,6 +36,12 @@ describe("computeSubscriptionExpiry", () => {
     expect(expiry.toISOString()).toBe("2027-08-20T10:00:00.000Z");
   });
 
+  it("ajoute trois mois pour une périodicité trimestrielle", () => {
+    const start = new Date("2026-08-20T10:00:00Z");
+    const expiry = computeSubscriptionExpiry(start, "quarterly");
+    expect(expiry.toISOString()).toBe("2026-11-20T10:00:00.000Z");
+  });
+
   it("ne mute pas la date de départ passée en paramètre", () => {
     const start = new Date("2026-08-20T10:00:00Z");
     const originalTime = start.getTime();

@@ -10,7 +10,7 @@ interface PlanRow {
   name_fr: string;
   price_amount: number | null;
   price_currency: string;
-  billing_period: "monthly" | "yearly" | null;
+  billing_period: "monthly" | "quarterly" | "yearly" | null;
   payment_instructions_fr: string | null;
   active: boolean;
 }
@@ -216,10 +216,13 @@ export function AdminSubscriptions() {
                     id={`plan-period-${p.plan_code}`}
                     className="w-full rounded border border-primary-300 px-3 py-2"
                     value={planForm.billingPeriod}
-                    onChange={(e) => setPlanForm({ ...planForm, billingPeriod: e.target.value as "" | "monthly" | "yearly" })}
+                    onChange={(e) =>
+                      setPlanForm({ ...planForm, billingPeriod: e.target.value as "" | "monthly" | "quarterly" | "yearly" })
+                    }
                   >
                     <option value="">— (plan gratuit)</option>
                     <option value="monthly">Mensuelle</option>
+                    <option value="quarterly">Trimestrielle</option>
                     <option value="yearly">Annuelle</option>
                   </select>
                 </Field>
@@ -267,7 +270,12 @@ export function AdminSubscriptions() {
                   <p className="font-medium text-primary-900">{p.name_fr}</p>
                   <p className="text-xs text-primary-500">
                     {p.price_amount !== null ? `${p.price_amount} ${p.price_currency}` : "Gratuit"}
-                    {p.billing_period ? ` / ${p.billing_period === "monthly" ? "mois" : "an"}` : ""} · {p.active ? "actif" : "inactif"}
+                    {p.billing_period
+                      ? ` / ${
+                          p.billing_period === "monthly" ? "mois" : p.billing_period === "quarterly" ? "trimestre" : "an"
+                        }`
+                      : ""}{" "}
+                    · {p.active ? "actif" : "inactif"}
                     {!p.payment_instructions_fr && p.plan_code !== "free" && " · ⚠ instructions non configurées"}
                   </p>
                 </div>

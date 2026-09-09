@@ -23,16 +23,23 @@
 export const SUBSCRIPTION_PLAN_CODES = ["free", "premium_monthly", "premium_yearly"] as const;
 export type SubscriptionPlanCode = (typeof SUBSCRIPTION_PLAN_CODES)[number];
 
+/** Tarifs mis à jour le 09/09/2026 à la demande du Dr Nikiema : mensuel à
+ * 5000 FCFA, et le plan `premium_yearly` redéfini en offre trimestrielle à
+ * 10000 FCFA. Le code `premium_yearly` est conservé tel quel (identifiant
+ * technique/clé primaire en base, jamais montré au patient) plutôt que
+ * renommé, pour ne pas risquer de casser les souscriptions déjà créées qui
+ * y font référence — seuls le libellé, le prix et la périodicité changent
+ * (voir migration 0018). */
 export const SUBSCRIPTION_PLAN_LABELS_FR: Record<SubscriptionPlanCode, string> = {
   free: "Gratuit",
   premium_monthly: "Premium (mensuel)",
-  premium_yearly: "Premium (annuel)",
+  premium_yearly: "Premium (trimestriel)",
 };
 
 export const SUBSCRIPTION_STATUSES = ["pending", "active", "expired", "canceled"] as const;
 export type SubscriptionStatus = (typeof SUBSCRIPTION_STATUSES)[number];
 
-export const BILLING_PERIODS = ["monthly", "yearly"] as const;
+export const BILLING_PERIODS = ["monthly", "quarterly", "yearly"] as const;
 export type BillingPeriod = (typeof BILLING_PERIODS)[number];
 
 /** §47 : « Mobile Money, Orange Money, Moov Money, autre fournisseur
@@ -109,6 +116,8 @@ export function computeSubscriptionExpiry(startedAt: Date, billingPeriod: Billin
   const expiry = new Date(startedAt.getTime());
   if (billingPeriod === "monthly") {
     expiry.setMonth(expiry.getMonth() + 1);
+  } else if (billingPeriod === "quarterly") {
+    expiry.setMonth(expiry.getMonth() + 3);
   } else {
     expiry.setFullYear(expiry.getFullYear() + 1);
   }

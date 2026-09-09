@@ -15,7 +15,7 @@ interface PlanRow {
   name_fr: string;
   price_amount: number | null;
   price_currency: string;
-  billing_period: "monthly" | "yearly" | null;
+  billing_period: "monthly" | "quarterly" | "yearly" | null;
   payment_instructions_fr: string | null;
   active: boolean;
 }
@@ -292,7 +292,13 @@ export function SubscriptionFlow() {
               <p className="font-medium text-primary-900">{plan.name_fr}</p>
               <p className="text-sm text-primary-600">
                 {plan.price_amount !== null ? formatPrice(plan.price_amount, plan.price_currency) : "—"}
-                {plan.billing_period === "monthly" ? " / mois" : plan.billing_period === "yearly" ? " / an" : ""}
+                {plan.billing_period === "monthly"
+                  ? " / mois"
+                  : plan.billing_period === "quarterly"
+                    ? " / trimestre"
+                    : plan.billing_period === "yearly"
+                      ? " / an"
+                      : ""}
               </p>
               <Button
                 type="button"

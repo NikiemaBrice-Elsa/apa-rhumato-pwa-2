@@ -390,7 +390,7 @@ export const adminSubscriptionPlanUpsertSchema = z.object({
   nameFr: z.string().trim().min(1),
   priceAmount: z.number().positive().nullable(),
   priceCurrency: z.string().trim().min(1).default("XOF"),
-  billingPeriod: z.enum(["monthly", "yearly"]).nullable(),
+  billingPeriod: z.enum(["monthly", "quarterly", "yearly"]).nullable(),
   paymentInstructionsFr: z.string().max(2000).optional(),
   active: z.boolean().default(true),
 });
