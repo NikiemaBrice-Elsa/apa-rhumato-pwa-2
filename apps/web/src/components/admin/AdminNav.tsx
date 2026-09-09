@@ -18,12 +18,22 @@ const LINKS = [
 ];
 
 /** §42 : navigation de l'espace administrateur — un lien par fonction listée
- * dans le cahier des charges. */
+ * dans le cahier des charges, plus un lien de retour explicite vers le
+ * tableau de bord patient (demande du 09/09/2026 : aucun moyen de quitter
+ * l'espace admin n'existait auparavant — ni bouton retour, ni lien vers le
+ * reste de l'application depuis les pages internes comme « Abonnements »,
+ * « Utilisateurs », etc.). */
 export function AdminNav() {
   const pathname = usePathname();
 
   return (
     <nav className="flex shrink-0 flex-row flex-wrap gap-2 lg:w-56 lg:flex-col">
+      <Link
+        href="/tableau-de-bord"
+        className="mb-2 flex items-center gap-1 rounded-lg border border-primary-300 px-3 py-2 text-sm font-medium text-primary-700 hover:bg-primary-100 lg:w-full"
+      >
+        ← Retour au tableau de bord
+      </Link>
       {LINKS.map((link) => {
         const active = pathname === link.href;
         return (

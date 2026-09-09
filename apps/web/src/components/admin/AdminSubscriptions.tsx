@@ -344,7 +344,8 @@ export function AdminSubscriptions() {
               {userLabel(p.users)} — {p.amount} {p.currency} via {PAYMENT_PROVIDER_LABELS_FR[p.provider]}
             </p>
             <p className="text-xs text-primary-500">
-              Référence : {p.external_reference ?? "—"} · Déclaré le {formatDate(p.created_at)} · Statut : {p.status}
+              Numéro utilisé pour la transaction : <span className="font-medium">{p.external_reference ?? "—"}</span>{" "}
+              · Déclaré le {formatDate(p.created_at)} · Statut : {p.status}
             </p>
             {p.status === "pending" && (
               <div className="mt-2 flex gap-2">

@@ -258,15 +258,20 @@ export function SubscriptionFlow() {
                   </select>
                 </label>
                 <label className="flex flex-col gap-1 text-sm text-primary-800">
-                  Référence de la transaction
+                  Numéro de téléphone utilisé pour la transaction
                   <input
-                    type="text"
+                    type="tel"
+                    inputMode="tel"
                     required
                     value={claimReference}
                     onChange={(e) => setClaimReference(e.target.value)}
-                    placeholder="Ex. TX123456"
+                    placeholder="Ex. 70 12 34 56"
                     className="rounded-lg border border-primary-300 px-3 py-2"
                   />
+                  <span className="text-xs font-normal text-primary-500">
+                    Indiquez le numéro Orange Money / Moov Money qui a réellement servi à effectuer le transfert —
+                    c&apos;est ce numéro qui sert de référence pour la vérification de votre paiement.
+                  </span>
                 </label>
                 {claimError && (
                   <p role="alert" className="text-sm text-red-700">

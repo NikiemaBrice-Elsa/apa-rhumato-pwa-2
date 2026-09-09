@@ -4,6 +4,7 @@ import { isSubscriptionCurrentlyActive, getSubscriptionDaysRemaining } from "@ap
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { PlannedSessionCard } from "@/components/dashboard/PlannedSessionCard";
 import { SubscriptionStatusCard } from "@/components/dashboard/SubscriptionStatusCard";
+import { LogoutButton } from "@/components/auth/LogoutButton";
 
 /**
  * Tableau de bord utilisateur (§33) — écran temporaire pour le Sprint 2.
@@ -136,6 +137,7 @@ export default async function DashboardPage() {
         seuils, contenu) — voir « Mon programme » pour le détail par pathologie. Une séance peut
         déjà être démarrée pour enregistrer votre ressenti, même sans programme validé.
       </p>
+      <LogoutButton className="mt-2" />
     </main>
   );
 }
