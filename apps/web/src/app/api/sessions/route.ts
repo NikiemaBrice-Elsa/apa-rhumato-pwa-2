@@ -105,7 +105,7 @@ export async function POST(request: Request) {
     const { data: programExercises } = await supabase
       .from("program_exercises")
       .select(
-        "order_index, exercise_id, exercise_library!inner(exercise_id, name, short_description, category, phase, medical_validation_status, starting_position, execution_steps, breathing_instruction, duration_seconds, repetitions, sets, rest_time_seconds, precautions, contraindications, stop_criteria)"
+        "order_index, exercise_id, exercise_library!inner(exercise_id, name, short_description, category, phase, medical_validation_status, starting_position, execution_steps, breathing_instruction, duration_seconds, repetitions, sets, rest_time_seconds, precautions, contraindications, stop_criteria, audio_preparation_url, audio_exercise_url)"
       )
       .eq("program_id", validatedProgramId)
       .eq("exercise_library.medical_validation_status", "validated")
@@ -145,6 +145,12 @@ export async function POST(request: Request) {
         // `null`/absent tant qu'il n'a pas été rempli côté admin, jamais
         // déduit ou inventé (§57, §59, §78) ; le composant d'affichage
         // (SessionFlow.tsx) n'affiche que les champs effectivement présents.
+        //
+        // Sprint 20 (10/09/2026) : `audio_preparation_url`/`audio_exercise_url`
+        // (« coach vocal intégré », priorisé par Dr Nikiema) suivent la même
+        // règle — vides aujourd'hui pour les 8 exercices, transmis dès qu'ils
+        // seront renseignés côté admin, jamais de lecture automatique tant
+        // qu'absents (voir AudioCoach.tsx).
         exercises = exerciseByRow.map(({ row, exercise }) => ({
           exerciseId: row.exercise_id,
           orderIndex: row.order_index,
@@ -162,6 +168,8 @@ export async function POST(request: Request) {
           precautions: exercise?.precautions ?? null,
           contraindications: exercise?.contraindications ?? null,
           stopCriteria: exercise?.stop_criteria ?? null,
+          audioPreparationUrl: exercise?.audio_preparation_url ?? null,
+          audioExerciseUrl: exercise?.audio_exercise_url ?? null,
         }));
       }
     }

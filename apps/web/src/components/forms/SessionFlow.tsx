@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/Button";
 import { dependencyToken } from "@/lib/offlineQueue";
 import { enqueueOperation } from "@/lib/offlineStorage";
 import { ExerciseDetails } from "@/components/exercises/ExerciseDetails";
+import { AudioCoach } from "@/components/exercises/AudioCoach";
 
 type Step = "pathology" | "verification" | "session" | "feedback" | "result";
 
@@ -41,6 +42,12 @@ interface SessionExerciseView {
   precautions?: string | null;
   contraindications?: string | null;
   stopCriteria?: string | null;
+  // Ajoutés le 10/09/2026 — « coach vocal intégré » (Sprint 20), voir
+  // apps/web/src/components/exercises/AudioCoach.tsx. Même règle : `null`
+  // tant qu'aucun audio n'a été déposé côté admin, jamais de lecture
+  // automatique.
+  audioPreparationUrl?: string | null;
+  audioExerciseUrl?: string | null;
 }
 
 /**
@@ -345,6 +352,7 @@ export function SessionFlow({ initialPathology, initialPlannedSessionId }: Sessi
                                 <p className="font-medium text-primary-900">{ex.name}</p>
                                 {ex.shortDescription && <p className="text-sm text-primary-700">{ex.shortDescription}</p>}
                                 <ExerciseDetails ex={ex} />
+                                <AudioCoach ex={ex} />
                               </div>
                             </label>
                           </li>
@@ -369,6 +377,7 @@ export function SessionFlow({ initialPathology, initialPlannedSessionId }: Sessi
                         <p className="font-medium text-primary-900">{ex.name}</p>
                         {ex.shortDescription && <p className="text-sm text-primary-700">{ex.shortDescription}</p>}
                         <ExerciseDetails ex={ex} />
+                        <AudioCoach ex={ex} />
                       </div>
                     </label>
                   </li>

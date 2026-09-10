@@ -90,7 +90,10 @@ export interface Exercise {
   targetMuscles?: string | null;
   equipmentRequired: EquipmentItem[];
   videoUrl?: string | null;
-  audioUrl?: string | null;
+  /** Coach vocal (Sprint 20) : audio joué avant l'exercice. */
+  audioPreparationUrl?: string | null;
+  /** Coach vocal (Sprint 20) : audio joué pendant l'exercice. */
+  audioExerciseUrl?: string | null;
   thumbnailUrl?: string | null;
   scientificReferenceIds: string[];
   lastReviewed?: string | null;

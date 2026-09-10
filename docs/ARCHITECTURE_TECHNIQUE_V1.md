@@ -528,7 +528,11 @@ liste imposée par le cahier des charges.*
 
   video_url                   string, nullable       
 
-  audio_url                   string, nullable       
+  audio_preparation_url       string, nullable       coach vocal (Sprint 20) —
+                                                     audio avant l\'exercice.
+
+  audio_exercise_url          string, nullable       coach vocal (Sprint 20) —
+                                                     audio pendant l\'exercice.
 
   thumbnail                   string, nullable       
 

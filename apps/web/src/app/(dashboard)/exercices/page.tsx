@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { EXERCISE_CATEGORY_LABELS_FR, type ExerciseCategory } from "@apa/domain";
 import { ExerciseDetails } from "@/components/exercises/ExerciseDetails";
+import { AudioCoach } from "@/components/exercises/AudioCoach";
 
 interface ExerciseRow {
   exercise_id: string;
@@ -19,6 +20,8 @@ interface ExerciseRow {
   precautions: string | null;
   contraindications: string | null;
   stop_criteria: string | null;
+  audio_preparation_url: string | null;
+  audio_exercise_url: string | null;
 }
 
 /**
@@ -42,10 +45,12 @@ export default async function ExercisesPage() {
   // déjà validés pour les exercices en ligne mais n'étaient jamais
   // transmis ici — voir ExerciseDetails.tsx pour le détail de la découverte
   // et la règle d'affichage (rien n'est montré si le champ est vide).
+  // audio_preparation_url/audio_exercise_url (coach vocal, Sprint 20,
+  // priorisé le 10/09/2026) suivent la même règle — voir AudioCoach.tsx.
   const { data } = await supabase
     .from("exercise_library")
     .select(
-      "exercise_id, name, short_description, category, difficulty, starting_position, execution_steps, breathing_instruction, duration_seconds, repetitions, sets, rest_time_seconds, precautions, contraindications, stop_criteria"
+      "exercise_id, name, short_description, category, difficulty, starting_position, execution_steps, breathing_instruction, duration_seconds, repetitions, sets, rest_time_seconds, precautions, contraindications, stop_criteria, audio_preparation_url, audio_exercise_url"
     )
     .order("name");
 
@@ -82,6 +87,12 @@ export default async function ExercisesPage() {
                   precautions: exercise.precautions,
                   contraindications: exercise.contraindications,
                   stopCriteria: exercise.stop_criteria,
+                }}
+              />
+              <AudioCoach
+                ex={{
+                  audioPreparationUrl: exercise.audio_preparation_url,
+                  audioExerciseUrl: exercise.audio_exercise_url,
                 }}
               />
             </li>

@@ -32,9 +32,19 @@ Ces quatre points avaient chacun une réponse de votre part, nécessitant une é
 
 - Espace professionnel de santé pour consulter les rapports (§41) — prévu, pas encore ouvert.
 - Envoi du rapport PDF par email, et historique des rapports déjà générés (aujourd'hui, chaque génération est à la demande, rien n'est conservé).
-- Envoi réel de notifications push (aujourd'hui, les notifications existent uniquement dans l'application, pas en dehors).
+- Envoi réel de notifications push (aujourd'hui, les notifications existent uniquement dans l'application, pas en dehors). **Mise à jour du 10/09 : repoussé après le coach vocal intégré**, à la demande explicite de Dr Nikiema.
 - Passerelle de paiement réelle — le mécanisme actuel est une réconciliation manuelle (le patient transfère via Mobile Money et déclare la référence, un administrateur vérifie et confirme).
 - Verrouillage de fonctionnalités derrière l'abonnement Premium — décision produit encore en attente de votre part, rien n'est verrouillé aujourd'hui.
+- Configuration Resend/SMTP pour les emails d'authentification Supabase — en attente, non commencée. **Mise à jour du 10/09 : repoussée après le coach vocal intégré**, à la demande explicite de Dr Nikiema.
+
+## 4bis. Nouveau chantier prioritaire (10/09/2026) — « Coach vocal intégré »
+
+Dr Nikiema a validé l'ajout du « coach vocal d'APA » (mini-audios diffusés pendant la séance, voir `contenu audio APAS en rhumato.docx`) à la feuille de route, **en priorité** : ce chantier passe devant la configuration Resend/SMTP et les notifications push (section 4 ci-dessus).
+
+- **Périmètre V1** : uniquement la partie principale (les 8 exercices déjà validés), puisqu'aucun contenu d'échauffement/retour au calme n'a été fourni (réponse « a » à la Question 1 du 09/09/2026) — aucun audio de ce type ne sera construit tant que ce contenu ne sera pas soumis séparément et validé, comme pour la structure de séance en 3 phases (Sprint 18, `docs/DECISIONS.md`).
+- **Qui enregistre** : Dr Nikiema lui-même (réponse « a » à la Question 5 du 09/09/2026).
+- **Deux clips par exercice**, confirmé le 10/09/2026 (audio de préparation + audio pendant l'exercice, conforme à sa maquette initiale).
+- **Mise à jour du 10/09 : infrastructure technique désormais construite et déployée** (voir `docs/DECISIONS.md`, Sprint 20) : `exercise_library.audio_preparation_url`/`audio_exercise_url` (migration 0019, exécutée en production), lecteur audio natif affiché pendant la séance et dans la bibliothèque d'exercices dès qu'un lien est renseigné, écran d'administration des exercices mis à jour avec les deux champs correspondants. **Il ne reste plus qu'une étape : que Dr Nikiema enregistre et dépose ses audios via `/admin/exercices`** — dès qu'un lien est renseigné pour un exercice, il apparaît automatiquement côté patient, sans développement supplémentaire.
 
 ## 5. Mise en production — indépendant du contenu médical
 

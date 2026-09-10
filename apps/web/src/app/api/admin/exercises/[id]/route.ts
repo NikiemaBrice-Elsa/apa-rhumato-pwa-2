@@ -83,7 +83,8 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     updates.target_muscles = input.targetMuscles || null;
     updates.equipment_required = input.equipmentRequired;
     updates.video_url = input.videoUrl || null;
-    updates.audio_url = input.audioUrl || null;
+    updates.audio_preparation_url = input.audioPreparationUrl || null;
+    updates.audio_exercise_url = input.audioExerciseUrl || null;
     updates.thumbnail_url = input.thumbnailUrl || null;
     updates.last_reviewed = new Date().toISOString().slice(0, 10);
     relationsInput = { pathologies: input.pathologies, objectives: input.objectives, scientificReferenceIds: input.scientificReferenceIds };

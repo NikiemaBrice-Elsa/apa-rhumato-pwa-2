@@ -13,6 +13,17 @@ concepteur médical a saisi. Toute ligne dont le statut de validation n'est
 pas 'validated' reste invisible des utilisateurs (RLS, migration
 0005_exercise_library.sql) — mais est tout de même importée, pour permettre
 une revue interne progressive.
+
+Sprint 20 (10/09/2026) : la colonne « URL audio » du gabarit (position 25)
+correspond désormais à `audio_preparation_url` (coach vocal, audio joué
+avant l'exercice — voir migration 0019). Le second clip, `audio_exercise_url`
+(audio joué pendant l'exercice), n'a volontairement PAS été ajouté au
+gabarit Excel pour éviter de réorganiser les colonnes d'un fichier déjà
+rempli et validé : il se saisit uniquement via l'écran d'administration des
+exercices (/admin/exercices), comme c'est de toute façon le chemin attendu
+pour les enregistrements audio de Dr Nikiema (il ne repasse pas par ce
+gabarit pour les 8 exercices déjà validés — ce script sert à en AJOUTER,
+pas à les modifier).
 """
 import sys
 import uuid
@@ -25,7 +36,7 @@ COLUMN_ORDER = [
     "category", "difficulty", "starting_position", "execution_steps", "breathing_instruction",
     "duration_seconds", "repetitions", "sets", "rest_time_seconds", "frequency", "intensity",
     "progression", "regression", "contraindications", "precautions", "stop_criteria",
-    "target_muscles", "equipment_required", "video_url", "audio_url", "thumbnail_url",
+    "target_muscles", "equipment_required", "video_url", "audio_preparation_url", "thumbnail_url",
     "scientific_references", "last_reviewed", "medical_validation_status",
 ]
 
@@ -34,7 +45,7 @@ DIRECT_COLUMNS = [
     "starting_position", "execution_steps", "breathing_instruction", "duration_seconds",
     "repetitions", "sets", "rest_time_seconds", "frequency", "intensity", "progression",
     "regression", "contraindications", "precautions", "stop_criteria", "target_muscles",
-    "video_url", "audio_url", "thumbnail_url", "last_reviewed", "medical_validation_status",
+    "video_url", "audio_preparation_url", "thumbnail_url", "last_reviewed", "medical_validation_status",
 ]
 
 INT_COLUMNS = {"duration_seconds", "repetitions", "sets", "rest_time_seconds"}

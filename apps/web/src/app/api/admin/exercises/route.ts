@@ -70,7 +70,8 @@ export async function POST(request: Request) {
       target_muscles: input.targetMuscles || null,
       equipment_required: input.equipmentRequired,
       video_url: input.videoUrl || null,
-      audio_url: input.audioUrl || null,
+      audio_preparation_url: input.audioPreparationUrl || null,
+      audio_exercise_url: input.audioExerciseUrl || null,
       thumbnail_url: input.thumbnailUrl || null,
       medical_validation_status: "draft",
     })

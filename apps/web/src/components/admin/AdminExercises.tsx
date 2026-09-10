@@ -43,7 +43,8 @@ interface ExerciseRow {
   target_muscles: string | null;
   equipment_required: string[];
   video_url: string | null;
-  audio_url: string | null;
+  audio_preparation_url: string | null;
+  audio_exercise_url: string | null;
   thumbnail_url: string | null;
   medical_validation_status: MedicalValidationStatus;
   exercise_pathologies: Array<{ pathology_code: string }>;
@@ -82,7 +83,8 @@ function emptyForm() {
     targetMuscles: "",
     equipmentRequired: [] as string[],
     videoUrl: "",
-    audioUrl: "",
+    audioPreparationUrl: "",
+    audioExerciseUrl: "",
     thumbnailUrl: "",
     pathologies: [] as string[],
     objectives: [] as string[],
@@ -115,7 +117,8 @@ function toFormValues(e: ExerciseRow) {
     targetMuscles: e.target_muscles ?? "",
     equipmentRequired: e.equipment_required ?? [],
     videoUrl: e.video_url ?? "",
-    audioUrl: e.audio_url ?? "",
+    audioPreparationUrl: e.audio_preparation_url ?? "",
+    audioExerciseUrl: e.audio_exercise_url ?? "",
     thumbnailUrl: e.thumbnail_url ?? "",
     pathologies: (e.exercise_pathologies ?? []).map((p) => p.pathology_code),
     objectives: (e.exercise_objectives ?? []).map((o) => o.objective_code),
@@ -339,12 +342,25 @@ export function AdminExercises() {
             <input id="ex-muscles" className="w-full rounded border border-primary-300 px-3 py-2" value={form.targetMuscles} onChange={(e) => setForm({ ...form, targetMuscles: e.target.value })} />
           </Field>
 
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <Field label="URL vidéo" htmlFor="ex-video">
               <input id="ex-video" className="w-full rounded border border-primary-300 px-3 py-2" value={form.videoUrl} onChange={(e) => setForm({ ...form, videoUrl: e.target.value })} />
             </Field>
-            <Field label="URL audio" htmlFor="ex-audio">
-              <input id="ex-audio" className="w-full rounded border border-primary-300 px-3 py-2" value={form.audioUrl} onChange={(e) => setForm({ ...form, audioUrl: e.target.value })} />
+            <Field label="Audio — préparation" htmlFor="ex-audio-prep" hint="Coach vocal : joué avant l'exercice (§ ajouté le 10/09/2026)">
+              <input
+                id="ex-audio-prep"
+                className="w-full rounded border border-primary-300 px-3 py-2"
+                value={form.audioPreparationUrl}
+                onChange={(e) => setForm({ ...form, audioPreparationUrl: e.target.value })}
+              />
+            </Field>
+            <Field label="Audio — pendant l'exercice" htmlFor="ex-audio-during" hint="Coach vocal : joué pendant l'exercice">
+              <input
+                id="ex-audio-during"
+                className="w-full rounded border border-primary-300 px-3 py-2"
+                value={form.audioExerciseUrl}
+                onChange={(e) => setForm({ ...form, audioExerciseUrl: e.target.value })}
+              />
             </Field>
             <Field label="URL vignette" htmlFor="ex-thumb">
               <input id="ex-thumb" className="w-full rounded border border-primary-300 px-3 py-2" value={form.thumbnailUrl} onChange={(e) => setForm({ ...form, thumbnailUrl: e.target.value })} />
