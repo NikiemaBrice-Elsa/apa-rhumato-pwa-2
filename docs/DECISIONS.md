@@ -364,6 +364,15 @@ Conforme au §79 du cahier des charges (« ne jamais cacher une erreur », docum
 - **Vérification.** Suite complète toujours au vert (141 tests web). `next build` propre (nouveau composant intégré au layout racine, chargé sur toutes les routes).
 - **Ce qui reste ouvert** : pas de réglage de vitesse/voix par le patient (utilise la voix française par défaut du navigateur) — à ajouter si le besoin se confirme à l'usage.
 
+### Sprint 21 (suite 2) — Correctif bibliothèque + débit ralenti + choix de voix (11/09/2026)
+
+- **Bug signalé** : la lecture à haute voix ne fonctionnait pas sur `/exercices` (bibliothèque) alors qu'elle fonctionnait ailleurs. **Cause probable identifiée** : un bug connu de plusieurs moteurs `SpeechSynthesis` (notamment Chrome desktop/Android) où un énoncé unique trop long (plusieurs milliers de caractères) s'arrête silencieusement sans déclencher d'erreur — la bibliothèque, avec ses 8 fiches d'exercice, produit le texte cumulé le plus long de toute l'application, ce qui explique qu'elle seule soit touchée.
+- **Correctif** : `splitIntoChunks` découpe désormais le texte par phrase (jamais au milieu d'un mot) et la lecture se fait comme une file de plusieurs énoncés plus courts (correctif standard documenté pour ce bug), plutôt qu'un énoncé unique.
+- **Débit ralenti** (`utterance.rate = 0.85`, contre 1 par défaut) — demande explicite du 11/09/2026 (« plus naturelle, posée, sans rapidité »).
+- **Choix de la voix ajouté** : un bouton 🎙️ (affiché seulement si l'appareil du patient propose plusieurs voix françaises) ouvre la liste des voix disponibles, avec un genre indiqué entre parenthèses quand le nom de la voix est reconnu (liste de noms de voix courantes Windows/macOS/iOS/Chrome — jamais un genre deviné pour une voix non reconnue). Choix mémorisé dans `localStorage` du navigateur du patient.
+- **Limite non résolue par ce correctif, documentée séparément** (voir message à Dr Nikiema du 11/09/2026 et le document `Question_Voix_Africaine_TTS_20260911.docx`) : aucune voix « africaine francophone » n'existe parmi les voix gratuites fournies par les navigateurs/OS (uniquement France/Belgique/Canada/Suisse) — recherche faite le 11/09/2026 sur les catalogues Azure et ElevenLabs. Une vraie voix africaine francophone (homme/femme) exigerait un service payant tiers (ElevenLabs identifié comme piste : voix « accent africain » disponibles, mais tarif et clé API à la charge de Dr Nikiema, qui doit les saisir lui-même) — question soumise sous forme de document Word, pas tranchée unilatéralement ici (coût récurrent + gestion de clé API : décision produit, pas technique).
+- **Vérification.** Suite complète toujours au vert (141 tests web). `next build` propre.
+
 ## Problèmes connus / limites de ce scaffold
 
 - Les tests fonctionnels et de sécurité (§55) sont amorcés (structure + un premier cas) mais pas exhaustifs : à compléter à chaque sprint.
