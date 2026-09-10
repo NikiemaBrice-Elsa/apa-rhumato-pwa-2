@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { EXERCISE_CATEGORY_LABELS_FR, type ExerciseCategory } from "@apa/domain";
+import { ExerciseDetails } from "@/components/exercises/ExerciseDetails";
 
 interface ExerciseRow {
   exercise_id: string;
@@ -8,6 +9,16 @@ interface ExerciseRow {
   short_description: string;
   category: ExerciseCategory;
   difficulty: string | null;
+  starting_position: string | null;
+  execution_steps: string | null;
+  breathing_instruction: string | null;
+  duration_seconds: number | null;
+  repetitions: number | null;
+  sets: number | null;
+  rest_time_seconds: number | null;
+  precautions: string | null;
+  contraindications: string | null;
+  stop_criteria: string | null;
 }
 
 /**
@@ -27,9 +38,15 @@ export default async function ExercisesPage() {
     redirect("/connexion");
   }
 
+  // 10/09/2026 : précautions, contre-indications et critères d'arrêt sont
+  // déjà validés pour les exercices en ligne mais n'étaient jamais
+  // transmis ici — voir ExerciseDetails.tsx pour le détail de la découverte
+  // et la règle d'affichage (rien n'est montré si le champ est vide).
   const { data } = await supabase
     .from("exercise_library")
-    .select("exercise_id, name, short_description, category, difficulty")
+    .select(
+      "exercise_id, name, short_description, category, difficulty, starting_position, execution_steps, breathing_instruction, duration_seconds, repetitions, sets, rest_time_seconds, precautions, contraindications, stop_criteria"
+    )
     .order("name");
 
   const exercises = (data ?? []) as ExerciseRow[];
@@ -53,6 +70,20 @@ export default async function ExercisesPage() {
                 {EXERCISE_CATEGORY_LABELS_FR[exercise.category]}
                 {exercise.difficulty ? ` · ${exercise.difficulty}` : ""}
               </p>
+              <ExerciseDetails
+                ex={{
+                  startingPosition: exercise.starting_position,
+                  executionSteps: exercise.execution_steps,
+                  breathingInstruction: exercise.breathing_instruction,
+                  durationSeconds: exercise.duration_seconds,
+                  repetitions: exercise.repetitions,
+                  sets: exercise.sets,
+                  restTimeSeconds: exercise.rest_time_seconds,
+                  precautions: exercise.precautions,
+                  contraindications: exercise.contraindications,
+                  stopCriteria: exercise.stop_criteria,
+                }}
+              />
             </li>
           ))}
         </ul>

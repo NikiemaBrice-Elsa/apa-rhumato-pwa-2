@@ -15,6 +15,7 @@ import {
 import { Button } from "@/components/ui/Button";
 import { dependencyToken } from "@/lib/offlineQueue";
 import { enqueueOperation } from "@/lib/offlineStorage";
+import { ExerciseDetails } from "@/components/exercises/ExerciseDetails";
 
 type Step = "pathology" | "verification" | "session" | "feedback" | "result";
 
@@ -25,6 +26,21 @@ interface SessionExerciseView {
   name?: string;
   shortDescription?: string;
   category?: string;
+  // Ajoutés le 10/09/2026 — voir apps/web/src/app/api/sessions/route.ts et
+  // apps/web/src/components/exercises/ExerciseDetails.tsx. Chacun peut être
+  // `null` — ne jamais afficher une valeur par défaut à la place, un champ
+  // vide signifie seulement qu'il n'a pas encore été renseigné pour cet
+  // exercice.
+  startingPosition?: string | null;
+  executionSteps?: string | null;
+  breathingInstruction?: string | null;
+  durationSeconds?: number | null;
+  repetitions?: number | null;
+  sets?: number | null;
+  restTimeSeconds?: number | null;
+  precautions?: string | null;
+  contraindications?: string | null;
+  stopCriteria?: string | null;
 }
 
 /**
@@ -325,10 +341,11 @@ export function SessionFlow({ initialPathology, initialPlannedSessionId }: Sessi
                                 checked={completedExerciseIds.has(ex.exerciseId)}
                                 onChange={() => toggleExerciseCompleted(ex.exerciseId)}
                               />
-                              <span>
+                              <div className="flex-1">
                                 <p className="font-medium text-primary-900">{ex.name}</p>
                                 {ex.shortDescription && <p className="text-sm text-primary-700">{ex.shortDescription}</p>}
-                              </span>
+                                <ExerciseDetails ex={ex} />
+                              </div>
                             </label>
                           </li>
                         ))}
@@ -348,10 +365,11 @@ export function SessionFlow({ initialPathology, initialPlannedSessionId }: Sessi
                         checked={completedExerciseIds.has(ex.exerciseId)}
                         onChange={() => toggleExerciseCompleted(ex.exerciseId)}
                       />
-                      <span>
+                      <div className="flex-1">
                         <p className="font-medium text-primary-900">{ex.name}</p>
                         {ex.shortDescription && <p className="text-sm text-primary-700">{ex.shortDescription}</p>}
-                      </span>
+                        <ExerciseDetails ex={ex} />
+                      </div>
                     </label>
                   </li>
                 ))}

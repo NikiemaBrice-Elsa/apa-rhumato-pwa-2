@@ -105,7 +105,7 @@ export async function POST(request: Request) {
     const { data: programExercises } = await supabase
       .from("program_exercises")
       .select(
-        "order_index, exercise_id, exercise_library!inner(exercise_id, name, short_description, category, phase, medical_validation_status)"
+        "order_index, exercise_id, exercise_library!inner(exercise_id, name, short_description, category, phase, medical_validation_status, starting_position, execution_steps, breathing_instruction, duration_seconds, repetitions, sets, rest_time_seconds, precautions, contraindications, stop_criteria)"
       )
       .eq("program_id", validatedProgramId)
       .eq("exercise_library.medical_validation_status", "validated")
@@ -134,6 +134,17 @@ export async function POST(request: Request) {
       // le démarrage de la séance déjà enregistré ci-dessus (§79 :
       // transparence plutôt qu'échec silencieux ou faux positif de sécurité).
       if (!sessionExercisesError) {
+        // Découverte du 10/09/2026 : `precautions`, `contraindications` et
+        // `stop_criteria` sont déjà renseignés et validés pour les 8
+        // exercices en ligne, mais n'étaient jusqu'ici JAMAIS transmis au
+        // patient — seuls `name`/`shortDescription`/`category` l'étaient.
+        // Ce contenu de sécurité existait donc en base sans jamais être vu
+        // pendant une séance réelle. On l'ajoute ici, ainsi que les champs
+        // d'exécution (durée, répétitions, etc.) qui, eux, ne sont pas
+        // encore renseignés pour ces 8 exercices — chaque champ reste donc
+        // `null`/absent tant qu'il n'a pas été rempli côté admin, jamais
+        // déduit ou inventé (§57, §59, §78) ; le composant d'affichage
+        // (SessionFlow.tsx) n'affiche que les champs effectivement présents.
         exercises = exerciseByRow.map(({ row, exercise }) => ({
           exerciseId: row.exercise_id,
           orderIndex: row.order_index,
@@ -141,6 +152,16 @@ export async function POST(request: Request) {
           name: exercise?.name,
           shortDescription: exercise?.short_description,
           category: exercise?.category,
+          startingPosition: exercise?.starting_position ?? null,
+          executionSteps: exercise?.execution_steps ?? null,
+          breathingInstruction: exercise?.breathing_instruction ?? null,
+          durationSeconds: exercise?.duration_seconds ?? null,
+          repetitions: exercise?.repetitions ?? null,
+          sets: exercise?.sets ?? null,
+          restTimeSeconds: exercise?.rest_time_seconds ?? null,
+          precautions: exercise?.precautions ?? null,
+          contraindications: exercise?.contraindications ?? null,
+          stopCriteria: exercise?.stop_criteria ?? null,
         }));
       }
     }
