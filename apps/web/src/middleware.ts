@@ -45,6 +45,8 @@ export async function middleware(request: NextRequest) {
     "/notifications",
     "/abonnement",
     "/admin",
+    "/professionnels",
+    "/professionnel",
   ];
   const isProtected = protectedPrefixes.some((p) => request.nextUrl.pathname.startsWith(p));
 
@@ -71,5 +73,7 @@ export const config = {
     "/notifications/:path*",
     "/abonnement/:path*",
     "/admin/:path*",
+    "/professionnels/:path*",
+    "/professionnel/:path*",
   ],
 };

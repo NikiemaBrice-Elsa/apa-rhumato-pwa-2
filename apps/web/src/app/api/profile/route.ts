@@ -70,6 +70,7 @@ export async function PUT(request: Request) {
       pain_baseline: input.painBaseline ?? null,
       fatigue_baseline: input.fatigueBaseline ?? null,
       track_cardio_params: input.trackCardioParams,
+      reminder_time: input.reminderTime,
       updated_at: new Date().toISOString(),
     },
     { onConflict: "user_id" }

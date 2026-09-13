@@ -124,6 +124,20 @@ export default async function DashboardPage() {
       >
         Mon abonnement (§47, §48)
       </Link>
+      <Link
+        href="/professionnels"
+        className="rounded-xl border border-primary-300 px-5 py-3 text-center font-medium text-primary-700"
+      >
+        Mes professionnels de santé (§41)
+      </Link>
+      {appUser?.role === "professional" && (
+        <Link
+          href="/professionnel"
+          className="rounded-xl border border-primary-300 px-5 py-3 text-center font-medium text-primary-700"
+        >
+          Espace professionnel de santé (§41)
+        </Link>
+      )}
       {appUser?.role === "admin" && (
         <Link
           href="/admin"

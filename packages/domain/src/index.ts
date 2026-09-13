@@ -14,3 +14,4 @@ export * from "./admin";
 export * from "./subscriptions";
 export * from "./functionalCapacity";
 export * from "./planning";
+export * from "./professional";

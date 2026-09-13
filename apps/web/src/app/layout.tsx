@@ -2,7 +2,6 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { getDictionary } from "@/lib/i18n";
 import { RecoveryRedirect } from "@/components/RecoveryRedirect";
-import { ReadAloudButton } from "@/components/ReadAloudButton";
 
 const dict = getDictionary();
 
@@ -30,7 +29,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <RecoveryRedirect />
         {children}
-        <ReadAloudButton />
         <script
           // Enregistrement du service worker (§10). Stratégie de cache
           // complète (§54) : voir public/sw.js, Sprint 12.

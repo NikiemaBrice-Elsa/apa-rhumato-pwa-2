@@ -937,42 +937,38 @@ reports
 
 professional_profiles
 
-*Espace professionnel --- schéma prévu mais non activé en V1 (§41).*
-
-  -----------------------------------------------------------------------
-  **Champ**            **Type**        **Notes**
-  -------------------- --------------- ----------------------------------
-  professional_id      UUID (PK)       
-
-  user_id              UUID (FK users) 
-
-  profession           enum            médecin \| kinésithérapeute \|
-                                       autre professionnel autorisé.
-
-  license_number       string,         
-                       nullable        
-
-  verified             boolean         
-  -----------------------------------------------------------------------
+*Non créée : simplification décidée au Sprint 23 (13/09/2026), voir
+patient_professional_links ci-dessous.*
 
 patient_professional_links
 
-*Liaison patient ↔ professionnel autorisé --- schéma prévu, non activé
-en V1 (§41).*
+*Liaison patient ↔ professionnel autorisé --- ACTIVÉE au Sprint 23
+(13/09/2026, §41, migration 0021), à la demande de Dr Nikiema. Simplifiée
+par rapport au schéma initialement esquissé ici : pas de table
+`professional_profiles` séparée (profession/numéro de licence/vérification)
+— un professionnel est simplement un compte `users.role = 'professional'`,
+attribué par l'administrateur depuis `/admin/utilisateurs` (mécanisme déjà
+existant depuis le Sprint 13, réutilisé tel quel). Toujours initiée par le
+PATIENT (§46) : voir apps/web/src/lib/professionalAuth.ts et
+packages/domain/src/professional.ts pour les règles de transition.*
 
   --------------------------------------------------------------------------------
   **Champ**            **Type**                 **Notes**
   -------------------- ------------------------ ----------------------------------
-  link_id              UUID (PK)                
+  id                   UUID (PK)                
 
-  user_id              UUID (FK users, patient) 
+  patient_id           UUID (FK users)          
 
-  professional_id      UUID (FK                 
-                       professional_profiles)   
+  professional_id      UUID (FK users)          Doit référencer un compte
+                                                 `role = 'professional'`
+                                                 `status = 'active'`.
 
   status               enum                     pending \| authorized \| revoked.
 
-  authorized_at        timestamp, nullable      
+  requested_at         timestamp                Date de l'invitation par
+                                                 le patient.
+
+  decided_at           timestamp, nullable      Date d'acceptation/révocation.
   --------------------------------------------------------------------------------
 
 audit_logs
@@ -1038,8 +1034,8 @@ initiale
 
 │ │ │ ├── admin/ \# Espace administrateur (§42)
 
-│ │ │ ├── professional/ \# Espace professionnel (préparé, non activé V1,
-§41)
+│ │ │ ├── professionnel/ \# Espace professionnel de santé — ACTIVÉ Sprint 23
+(13/09/2026, §41)
 
 │ │ │ └── api/ \# API routes (proxy sécurisé vers services)
 

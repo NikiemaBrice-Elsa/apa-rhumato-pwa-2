@@ -44,6 +44,7 @@ export function PatientProfileForm() {
       painBaseline: num("painBaseline"),
       fatigueBaseline: num("fatigueBaseline"),
       trackCardioParams: formData.get("trackCardioParams") === "on",
+      reminderTime: String(formData.get("reminderTime") || "09:00"),
     };
 
     try {
@@ -124,6 +125,13 @@ export function PatientProfileForm() {
         <input type="checkbox" name="trackCardioParams" className="mt-1" />
         <span>Je souhaite aussi suivre ma tension artérielle et/ou ma glycémie.</span>
       </label>
+
+      <Field label="Heure de mon rappel quotidien" htmlFor="reminderTime" error={errors.reminderTime}>
+        <input id="reminderTime" name="reminderTime" type="time" defaultValue="09:00" className="input" />
+      </Field>
+      <p className="-mt-2 text-sm text-primary-500">
+        L'heure à laquelle vous préférez recevoir le rappel de votre séance du jour, si elle n'est pas encore faite.
+      </p>
 
       {formError && (
         <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">

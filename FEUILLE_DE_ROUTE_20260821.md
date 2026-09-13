@@ -30,12 +30,14 @@ Ces quatre points avaient chacun une réponse de votre part, nécessitant une é
 
 ## 4. Fonctionnalités prévues par le cahier des charges mais volontairement pas activées en V1
 
-- Espace professionnel de santé pour consulter les rapports (§41) — prévu, pas encore ouvert.
+- Espace professionnel de santé pour consulter les rapports (§41). **Mise à jour du 13/09 : ACTIVÉ** (Sprint 23, `docs/DECISIONS.md`) — un professionnel de santé (compte `role = 'professional'`, attribué par vous depuis `/admin/utilisateurs`) peut désormais consulter, en lecture seule, le rapport d'un patient qui l'a explicitement invité et autorisé. Reste à faire : créer un premier compte professionnel réel pour l'essayer.
 - Envoi du rapport PDF par email, et historique des rapports déjà générés (aujourd'hui, chaque génération est à la demande, rien n'est conservé).
 - Envoi réel de notifications push (aujourd'hui, les notifications existent uniquement dans l'application, pas en dehors). **Mise à jour du 10/09 : repoussé après le coach vocal intégré**, à la demande explicite de Dr Nikiema.
-- Passerelle de paiement réelle — le mécanisme actuel est une réconciliation manuelle (le patient transfère via Mobile Money et déclare la référence, un administrateur vérifie et confirme).
-- Verrouillage de fonctionnalités derrière l'abonnement Premium — décision produit encore en attente de votre part, rien n'est verrouillé aujourd'hui.
+- Passerelle de paiement réelle — le mécanisme actuel est une réconciliation manuelle (le patient transfère via Mobile Money et déclare la référence, un administrateur vérifie et confirme). **Mise à jour du 13/09 : confirmé par vous** — la réconciliation manuelle est conservée, pas de passerelle automatique prévue pour l'instant.
+- Verrouillage de fonctionnalités derrière l'abonnement Premium — décision produit encore en attente de votre part, rien n'est verrouillé aujourd'hui. **Mise à jour du 13/09 : vous avez demandé qu'on définisse cela maintenant** — une proposition de fonctionnalités candidates vous sera soumise en document Word.
 - Configuration Resend/SMTP pour les emails d'authentification Supabase — en attente, non commencée. **Mise à jour du 10/09 : repoussée après le coach vocal intégré**, à la demande explicite de Dr Nikiema.
+- Cadence des notifications de rappel (heure du rappel quotidien). **Mise à jour du 13/09 : ACTIVÉE** (Sprint 23) — chaque patient choisit désormais sa propre heure de rappel quotidien dans son profil, plutôt qu'une heure fixe imposée.
+- Échelle de difficulté/intensité des exercices (texte libre aujourd'hui) — vous avez demandé le 13/09 qu'une échelle formelle vous soit proposée ; à venir.
 
 ## 4bis. Nouveau chantier prioritaire (10/09/2026) — « Coach vocal intégré »
 
@@ -53,7 +55,7 @@ Ce sont des étapes techniques, à faire une fois que vous jugez le contenu suff
 - Créer un projet Supabase réel et renseigner les variables d'environnement.
 - Exécuter les migrations puis les seeds sur cette base réelle, dans l'ordre.
 - Provisionner votre premier compte administrateur (procédure documentée dans `docs/DEPLOYMENT.md`).
-- Renseigner un numéro Mobile Money / Orange Money / Moov Money réel avant d'ouvrir de vraies inscriptions Premium — le champ est aujourd'hui vide.
+- ~~Renseigner un numéro Mobile Money / Orange Money / Moov Money réel avant d'ouvrir de vraies inscriptions Premium — le champ est aujourd'hui vide.~~ **Fait** : les numéros réels sont en base depuis début septembre (migration dédiée) — ce point était encore listé ici par erreur, corrigé le 13/09/2026 (voir `docs/DECISIONS.md`, Sprint 22).
 - Héberger l'application (Vercel recommandé) et configurer les variables d'environnement côté hébergeur.
 - Vérifier le rendu du rapport PDF une première fois en conditions réelles (point de vigilance technique connu, lié à l'environnement serverless).
 - Vérifier manuellement le mode hors connexion après déploiement (non testable automatiquement).

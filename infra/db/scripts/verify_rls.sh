@@ -48,6 +48,8 @@ cleanup() {
   sudo -u postgres psql -q -c "drop database if exists ${DB};" >/dev/null 2>&1
   sudo -u postgres psql -q -c "drop role if exists app_user;" >/dev/null 2>&1
   sudo -u postgres psql -q -c "drop role if exists service_role;" >/dev/null 2>&1
+  sudo -u postgres psql -q -c "drop role if exists authenticated;" >/dev/null 2>&1
+  sudo -u postgres psql -q -c "drop role if exists anon;" >/dev/null 2>&1
   echo "Base et rôles de vérification supprimés."
 }
 trap cleanup EXIT
@@ -138,6 +140,39 @@ create or replace function auth.role() returns text as $$
 $$ language sql stable;
 SQL
 
+# Rôles Postgres AVANT de rejouer les migrations : "anon" et "authenticated"
+# sont fournis par une vraie instance Supabase et jamais créés par les
+# migrations elles-mêmes, qui supposent qu'ils existent déjà (voir
+# 0017_grants_and_users_insert_policy.sql, "grant ... to anon,
+# authenticated, service_role"). Sans eux créés ICI, AVANT la boucle de
+# migrations ci-dessous, cette migration échoue ("role anon does not
+# exist") sur n'importe quelle base Postgres "nue" comme celle-ci —
+# correctif du 13/09/2026, pré-existant à ce sprint, découvert en vérifiant
+# le Sprint 23 (§41) de bout en bout. NOLOGIN : jamais utilisés pour se
+# connecter directement dans ce script (seul app_user se connecte, avec le
+# GUC "app.current_client_role" simulant anon/authenticated côté
+# auth.role() — voir psql_as ci-dessus).
+sudo -u postgres psql -q -d "$DB" <<SQL >/dev/null
+do \$\$
+begin
+  if not exists (select from pg_roles where rolname = 'anon') then
+    create role anon nologin;
+  end if;
+  if not exists (select from pg_roles where rolname = 'authenticated') then
+    create role authenticated nologin;
+  end if;
+  if not exists (select from pg_roles where rolname = 'app_user') then
+    create role app_user login password '${PGPASSWORD_TEST}';
+  end if;
+  if not exists (select from pg_roles where rolname = 'service_role') then
+    create role service_role login password '${PGPASSWORD_TEST}' bypassrls;
+  else
+    alter role service_role bypassrls;
+  end if;
+  grant authenticated to app_user;
+end \$\$;
+SQL
+
 for f in "$REPO_ROOT"/infra/db/migrations/*.sql; do
   sudo -u postgres psql -q -d "$DB" -v ON_ERROR_STOP=1 -f "$f" >/dev/null
   if [ $? -ne 0 ]; then
@@ -151,32 +186,24 @@ for f in "$REPO_ROOT"/infra/db/seed/*.sql; do
 done
 
 sudo -u postgres psql -q -d "$DB" <<SQL >/dev/null
-do \$\$
-begin
-  if not exists (select from pg_roles where rolname = 'app_user') then
-    create role app_user login password '${PGPASSWORD_TEST}';
-  end if;
-  if not exists (select from pg_roles where rolname = 'service_role') then
-    create role service_role login password '${PGPASSWORD_TEST}' bypassrls;
-  else
-    alter role service_role bypassrls;
-  end if;
-end \$\$;
-grant usage on schema public, auth to app_user, service_role;
+grant usage on schema public, auth to app_user, service_role, anon, authenticated;
 grant select, insert, update, delete on all tables in schema public to app_user, service_role;
 grant select on all tables in schema auth to app_user, service_role;
 grant execute on all functions in schema auth to app_user, service_role;
 SQL
 
-# Deux patients fixtures (A = 111…, B = 222…), sans aucun contenu médical
-# inventé — uniquement des identifiants et un nom de test.
+# Deux patients fixtures (A = 111…, B = 222…) et un professionnel fixture
+# (C = 999…, §41), sans aucun contenu médical inventé — uniquement des
+# identifiants et un nom de test.
 sudo -u postgres psql -q -d "$DB" <<'SQL' >/dev/null
 insert into auth.users (id, email) values
   ('11111111-1111-1111-1111-111111111111', 'a@test.local'),
-  ('22222222-2222-2222-2222-222222222222', 'b@test.local');
+  ('22222222-2222-2222-2222-222222222222', 'b@test.local'),
+  ('99999999-9999-9999-9999-999999999999', 'c-pro@test.local');
 insert into public.users (id, email, first_name, last_name, role, status) values
   ('11111111-1111-1111-1111-111111111111', 'a@test.local', 'A', 'Test', 'patient', 'active'),
-  ('22222222-2222-2222-2222-222222222222', 'b@test.local', 'B', 'Test', 'patient', 'active');
+  ('22222222-2222-2222-2222-222222222222', 'b@test.local', 'B', 'Test', 'patient', 'active'),
+  ('99999999-9999-9999-9999-999999999999', 'c-pro@test.local', 'C', 'Pro', 'professional', 'active');
 SQL
 
 # Un exercice et un programme fictifs (draft, jamais validated) pour vérifier
@@ -358,6 +385,45 @@ expect_success "planned_sessions : A peut reporter sa propre séance planifiée"
   "update public.planned_sessions set planned_for = current_date + 1 where id = '88888888-8888-8888-8888-888888888888';"
 expect_update_zero "planned_sessions : B ne peut PAS modifier une séance planifiée de A" app_user "$B" authenticated \
   "update public.planned_sessions set status = 'cancelled_safety' where id = '88888888-8888-8888-8888-888888888888';"
+
+echo ""
+echo "--- 9. patient_professional_links / accès identité liée (§41, Sprint 23) ---"
+
+C="99999999-9999-9999-9999-999999999999"
+
+expect_row_count "users : avant tout lien, B ne voit PAS le professionnel C" app_user "$B" authenticated \
+  "select count(*) from public.users where id = '$C';" "0"
+
+# Création du lien via service_role (chemin réel : /api/professional-links,
+# POST — voir le commentaire de cette route sur pourquoi l'INSERT direct par
+# le patient ne peut pas fonctionner tant qu'aucun lien n'existe déjà).
+psql_service "insert into public.patient_professional_links (id, patient_id, professional_id, status) values ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '$A', '$C', 'pending');" >/dev/null
+
+expect_row_count "patient_professional_links : A voit son propre lien (pending)" app_user "$A" authenticated \
+  "select count(*) from public.patient_professional_links where id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';" "1"
+expect_row_count "patient_professional_links : B ne voit PAS le lien de A" app_user "$B" authenticated \
+  "select count(*) from public.patient_professional_links where id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';" "0"
+expect_row_count "users : une fois le lien créé, A voit l'identité du professionnel C" app_user "$A" authenticated \
+  "select count(*) from public.users where id = '$C';" "1"
+expect_row_count "users : une fois le lien créé, C voit l'identité du patient A" app_user "$C" authenticated \
+  "select count(*) from public.users where id = '$A';" "1"
+
+expect_error "patient_professional_links : A ne peut PAS s'auto-autoriser (pending -> authorized)" app_user "$A" authenticated \
+  "update public.patient_professional_links set status = 'authorized' where id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';"
+expect_update_zero "patient_professional_links : B ne peut PAS modifier le lien de A" app_user "$B" authenticated \
+  "update public.patient_professional_links set status = 'revoked' where id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';"
+
+expect_success "patient_professional_links : C (professionnel) peut accepter l'invitation" app_user "$C" authenticated \
+  "update public.patient_professional_links set status = 'authorized' where id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';"
+expect_row_count "patient_professional_links : le lien est bien 'authorized'" app_user "$A" authenticated \
+  "select count(*) from public.patient_professional_links where id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa' and status = 'authorized';" "1"
+
+expect_success "patient_professional_links : A peut révoquer l'accès à tout moment" app_user "$A" authenticated \
+  "update public.patient_professional_links set status = 'revoked' where id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';"
+expect_error "patient_professional_links : C ne peut PAS se réinviter lui-même (revoked -> pending)" app_user "$C" authenticated \
+  "update public.patient_professional_links set status = 'pending' where id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';"
+expect_success "patient_professional_links : seul A peut réinviter après une révocation" app_user "$A" authenticated \
+  "update public.patient_professional_links set status = 'pending' where id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';"
 
 echo ""
 echo "=== Résumé ==="

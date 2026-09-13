@@ -152,6 +152,30 @@ export interface NotificationFacts {
   consecutiveCompletedSessions: number;
   lastAssessmentAt: string | null;
   lastMeasurementAt: string | null;
+  /**
+   * Heure de rappel quotidien du patient (`patient_profiles.reminder_time`,
+   * Sprint 23 — 13/09/2026, décision Q5 de Dr Nikiema : « rappel quotidien, à
+   * une heure choisie par le patient lui-même ») déjà atteinte ou dépassée,
+   * dans le fuseau horaire LOCAL du patient. Calculée côté route
+   * (`isReminderTimeReached`) à partir de l'heure locale transmise par le
+   * client — le serveur ne connaît pas le fuseau horaire du patient et ne
+   * doit jamais deviner son heure locale à partir de l'heure serveur (UTC).
+   * Ne gate QUE `session_reminder` (le rappel quotidien "routine") : les
+   * autres types de rappel ne sont pas liés à un moment précis de la
+   * journée, et `missed_sessions_reminder` (plusieurs jours sans séance)
+   * reste volontairement affiché dès que dû, sans attendre cette heure.
+   */
+  reminderTimeReached: boolean;
+}
+
+/**
+ * Compare l'heure locale du patient à son heure de rappel préférée — deux
+ * chaînes `HH:MM` (24h, zéro-paddées), comparables lexicographiquement sans
+ * conversion en `Date` (évite tout piège de fuseau horaire : on compare deux
+ * heures "murales", jamais deux instants). Pure et testée isolément.
+ */
+export function isReminderTimeReached(reminderTime: string, localTimeHHMM: string): boolean {
+  return localTimeHHMM >= reminderTime;
 }
 
 /**
@@ -168,7 +192,7 @@ export function computeDueNotifications(facts: NotificationFacts, now: Date): No
     daysSince(facts.lastCompletedSessionAt, now) >= MISSED_SESSION_GAP_DAYS
   ) {
     due.push(buildMissedSessionsReminderMessage());
-  } else if (!facts.hasCompletedSessionToday) {
+  } else if (!facts.hasCompletedSessionToday && facts.reminderTimeReached) {
     due.push(buildSessionReminderMessage());
   }
 

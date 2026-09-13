@@ -52,6 +52,14 @@ export const patientProfileSchema = z.object({
   painBaseline: z.number().int().min(0).max(10).optional(),
   fatigueBaseline: z.number().int().min(0).max(10).optional(),
   trackCardioParams: z.boolean().default(false),
+  /** §39, Sprint 23 (13/09/2026) : heure à laquelle le patient souhaite
+   * recevoir son rappel quotidien de séance (24h, "HH:MM") — remplace une
+   * heure fixe unique décidée par l'administrateur (voir
+   * packages/domain/src/notifications.ts, `isReminderTimeReached`). */
+  reminderTime: z
+    .string()
+    .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Heure invalide (format HH:MM).")
+    .default("09:00"),
 });
 
 export type PatientProfileInput = z.infer<typeof patientProfileSchema>;
@@ -239,6 +247,23 @@ export const adminUserStatusSchema = z.object({
   status: z.enum(["active", "suspended"]),
 });
 export type AdminUserStatusInput = z.infer<typeof adminUserStatusSchema>;
+
+/** §41, Sprint 23 : le patient invite un professionnel par son email — le
+ * professionnel doit déjà avoir un compte (rôle attribué par l'admin,
+ * `/admin/utilisateurs`) ; on ne crée jamais de compte depuis cet écran. */
+export const professionalLinkInviteSchema = z.object({
+  professionalEmail: z.string().trim().email("Email invalide."),
+});
+export type ProfessionalLinkInviteInput = z.infer<typeof professionalLinkInviteSchema>;
+
+/** §41 : action du patient (annuler/révoquer/réinviter) ou du professionnel
+ * (accepter/décliner) sur un lien existant — la transition exacte permise
+ * est vérifiée via `canTransitionProfessionalLinkStatus` (packages/domain/src/professional.ts)
+ * ET par les policies RLS (migration 0021), jamais par ce schéma seul. */
+export const professionalLinkStatusSchema = z.object({
+  status: z.enum(["pending", "authorized", "revoked"]),
+});
+export type ProfessionalLinkStatusInput = z.infer<typeof professionalLinkStatusSchema>;
 
 export const adminUserRoleSchema = z.object({
   role: z.enum(["patient", "professional", "admin"]),

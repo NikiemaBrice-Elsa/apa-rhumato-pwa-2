@@ -10,6 +10,7 @@ import {
   buildStreakCongratulationsMessage,
   containsGuiltTrippingLanguage,
   computeDueNotifications,
+  isReminderTimeReached,
   STREAK_CONGRATULATIONS_THRESHOLD,
   MISSED_SESSION_GAP_DAYS,
   type NotificationFacts,
@@ -81,6 +82,7 @@ describe("computeDueNotifications", () => {
     consecutiveCompletedSessions: 1,
     lastAssessmentAt: now.toISOString(),
     lastMeasurementAt: now.toISOString(),
+    reminderTimeReached: true,
   };
 
   it("ne signale rien de particulier -> encouragement", () => {
@@ -134,10 +136,40 @@ describe("computeDueNotifications", () => {
       consecutiveCompletedSessions: 0,
       lastAssessmentAt: null,
       lastMeasurementAt: null,
+      reminderTimeReached: true,
     };
     const due = computeDueNotifications(facts, now);
     expect(due.map((d) => d.type)).toEqual(
       expect.arrayContaining(["session_reminder", "assessment_reminder", "measurement_reminder"])
     );
+  });
+
+  it("ne rappelle pas encore la séance si l'heure de rappel choisie par le patient n'est pas atteinte (13/09/2026)", () => {
+    const facts: NotificationFacts = { ...baseline, hasCompletedSessionToday: false, reminderTimeReached: false };
+    const due = computeDueNotifications(facts, now);
+    expect(due.map((d) => d.type)).not.toContain("session_reminder");
+  });
+
+  it("rappelle malgré tout après plusieurs jours sans séance, même avant l'heure de rappel", () => {
+    const oldDate = new Date(now.getTime() - (MISSED_SESSION_GAP_DAYS + 1) * 24 * 60 * 60 * 1000).toISOString();
+    const facts: NotificationFacts = {
+      ...baseline,
+      lastCompletedSessionAt: oldDate,
+      hasCompletedSessionToday: false,
+      reminderTimeReached: false,
+    };
+    const due = computeDueNotifications(facts, now);
+    expect(due.map((d) => d.type)).toContain("missed_sessions_reminder");
+  });
+});
+
+describe("isReminderTimeReached (§39, Sprint 23 — 13/09/2026)", () => {
+  it("n'est pas atteinte avant l'heure choisie", () => {
+    expect(isReminderTimeReached("09:00", "08:59")).toBe(false);
+  });
+
+  it("est atteinte à l'heure exacte et au-delà", () => {
+    expect(isReminderTimeReached("09:00", "09:00")).toBe(true);
+    expect(isReminderTimeReached("09:00", "18:30")).toBe(true);
   });
 });

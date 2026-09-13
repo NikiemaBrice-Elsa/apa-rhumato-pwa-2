@@ -44,7 +44,13 @@ export function NotificationsFlow() {
       setLoading(true);
       setError(null);
       try {
-        await fetch("/api/notifications/sync", { method: "POST" });
+        await fetch("/api/notifications/sync", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          // Heure locale du patient ("HH:MM") : le serveur ne connaît pas son
+          // fuseau horaire — voir /api/notifications/sync (Sprint 23, 13/09/2026).
+          body: JSON.stringify({ localTime: new Date().toTimeString().slice(0, 5) }),
+        });
         await reload();
       } catch {
         setError("Impossible de charger vos notifications pour le moment.");
