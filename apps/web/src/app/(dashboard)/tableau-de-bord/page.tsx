@@ -71,6 +71,12 @@ export default async function DashboardPage() {
       />
       <PlannedSessionCard />
       <Link
+        href="/profil"
+        className="rounded-xl border border-primary-300 px-5 py-3 text-center font-medium text-primary-700"
+      >
+        Mon profil
+      </Link>
+      <Link
         href="/evaluation"
         className="rounded-xl bg-primary-700 px-5 py-3 text-center font-medium text-white shadow-sm"
       >

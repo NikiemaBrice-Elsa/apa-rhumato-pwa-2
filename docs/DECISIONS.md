@@ -428,6 +428,16 @@ Conforme au §79 du cahier des charges (« ne jamais cacher une erreur », docum
 - **Aucun code ni contenu n'est déployé pour ces 3 points** tant que Dr Nikiema n'a pas répondu : ni le schéma `patient_professional_links`-like pour les autres, ni la reformulation, ni le format difficulté/intensité, ni le verrouillage premium.
 - **Ce qui reste ouvert** : attente de ses réponses aux 4 questions du document.
 
+### Sprint 24 — Correction : « Mon profil » inaccessible après l'inscription (14/09/2026)
+
+- **Signalé par Dr Nikiema** : après le déploiement du Sprint 23, aucun lien "Mon profil" n'existait dans l'application — la page `/profil` (`apps/web/src/app/(onboarding)/profil/page.tsx`) n'était utilisée qu'une seule fois, juste après l'inscription (`SignUpForm.tsx` y redirige), puis plus jamais accessible depuis le tableau de bord. Conséquence concrète : le nouveau champ "Heure de mon rappel quotidien" (Sprint 23, Q5) n'avait donc aucun moyen d'être modifié une fois le compte créé.
+- **Bug plus sérieux découvert en creusant** : `PUT /api/profile` remplace tout le profil en une fois (`upsert`, pas une fusion partielle — voir `apps/web/src/app/api/profile/route.ts`), et `PatientProfileForm.tsx` ne pré-remplissait jamais les champs avec les valeurs déjà enregistrées. Ajouter un simple lien vers `/profil` sans corriger cela aurait effacé silencieusement taille, poids, pathologie principale et objectifs de tout patient qui aurait rouvert la page pour changer son heure de rappel.
+- **Correctif** :
+  - `PatientProfileForm.tsx` charge désormais le profil existant (`GET /api/profile`) avant d'afficher le formulaire, et pré-remplit chaque champ (taille, poids, tour de taille, niveau d'activité, pathologie principale, objectifs cochés, suivi cardio, heure de rappel).
+  - Redirection après enregistrement : vers `/evaluation` uniquement si aucun profil n'existait avant cette visite (première inscription, comportement inchangé) ; sinon un message de confirmation s'affiche et la page reste ouverte (modification depuis le tableau de bord).
+  - Lien "Mon profil" ajouté au tableau de bord (`(dashboard)/tableau-de-bord/page.tsx`), et lien "Retour au tableau de bord" ajouté sur la page `/profil` elle-même.
+- **Vérification.** Suite complète (141 tests `apps/web`, 438 tests tous workspaces confondus) et `next build` toujours au vert après ce correctif (aucun test dédié préexistant sur ce composant, aucun cassé).
+
 ## Problèmes connus / limites de ce scaffold
 
 - Les tests fonctionnels et de sécurité (§55) sont amorcés (structure + un premier cas) mais pas exhaustifs : à compléter à chaque sprint.
