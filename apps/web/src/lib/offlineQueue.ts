@@ -25,7 +25,7 @@ export type QueuedOperationStatus = "pending" | "conflict";
 export interface QueuedOperation {
   id: string;
   entityType: string;
-  method: "POST" | "PATCH" | "DELETE";
+  method: "POST" | "PATCH" | "PUT" | "DELETE";
   /** Peut contenir le jeton `{{op:<dependsOnOperationId>}}`, résolu à la synchronisation. */
   url: string;
   body?: unknown;

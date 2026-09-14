@@ -105,6 +105,44 @@ describe("syncQueue — échec réseau (hors connexion)", () => {
   });
 });
 
+describe("syncQueue — entités hors séance (Sprint 24, 14/09/2026, Priorité 5)", () => {
+  it("synchronise une opération PUT (profil patient) exactement comme une opération POST/PATCH — la file est agnostique de la méthode", async () => {
+    const profileUpdate = op({
+      id: "profile-1",
+      entityType: "profile",
+      method: "PUT",
+      url: "/api/profile",
+      body: { heightCm: 170 },
+    });
+
+    const seenMethods: string[] = [];
+    const execute: ExecuteOperation = async (_resolved, opArg) => {
+      seenMethods.push(opArg.method);
+      return { ok: true };
+    };
+
+    const { updatedQueue, summary } = await syncQueue([profileUpdate], execute);
+    expect(seenMethods).toEqual(["PUT"]);
+    expect(updatedQueue).toHaveLength(0);
+    expect(summary.synced).toEqual(["profile-1"]);
+  });
+
+  it("synchronise une mesure de suivi (entityType \"measurement\") sans dépendance, comme une opération isolée", async () => {
+    const measurement = op({
+      id: "measurement-1",
+      entityType: "measurement",
+      method: "POST",
+      url: "/api/measurements",
+      body: { measurementType: "poids", weightKg: 70 },
+    });
+
+    const execute: ExecuteOperation = async () => ({ ok: true, serverId: "server-measurement-1" });
+    const { updatedQueue, summary } = await syncQueue([measurement], execute);
+    expect(updatedQueue).toHaveLength(0);
+    expect(summary.synced).toEqual(["measurement-1"]);
+  });
+});
+
 describe("syncQueue — gestion des conflits (§54)", () => {
   it("marque une opération en conflit plutôt que de la perdre ou de bloquer indéfiniment", async () => {
     const queue = [op({ id: "op-1" })];

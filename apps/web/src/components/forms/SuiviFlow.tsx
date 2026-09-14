@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { computeBmi } from "@apa/domain";
 import { Button } from "@/components/ui/Button";
 import { MiniLineChart } from "@/components/ui/MiniLineChart";
+import { enqueueOperation } from "@/lib/offlineStorage";
 
 interface ProfileRow {
   height_cm: number | null;
@@ -51,6 +52,7 @@ export function SuiviFlow() {
   const [glycemia, setGlycemia] = useState<MeasurementRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [queuedMessage, setQueuedMessage] = useState<string | null>(null);
 
   async function reloadAll() {
     setLoading(true);
@@ -89,19 +91,47 @@ export function SuiviFlow() {
     reloadAll();
   }, []);
 
+  // Sprint 24 (14/09/2026, Priorité 5 de Feuille_de_route_prioritaire_20260912.docx) :
+  // avant ce correctif, une mesure saisie hors connexion échouait simplement
+  // (aucun `try`/`catch` autour du `fetch` : une coupure réseau en cours de
+  // requête aurait même produit une exception non gérée) — contrairement à
+  // la séance (SessionFlow.tsx), qui utilise déjà offlineQueue.ts depuis le
+  // Sprint 12. La file elle-même était déjà générique par entité (voir
+  // `extractServerId` dans offlineStorage.ts, qui gère déjà la forme
+  // `{ measurement: { id } }` renvoyée par `POST /api/measurements` — signe
+  // que ce câblage était prévu dès l'origine, seulement jamais fait) ; seul
+  // cet écran ne l'utilisait pas encore.
+  function queueMeasurement(payload: Record<string, unknown>) {
+    enqueueOperation({ id: crypto.randomUUID(), entityType: "measurement", method: "POST", url: "/api/measurements", body: payload });
+    setQueuedMessage("Hors connexion : cette mesure sera synchronisée dès que la connexion sera rétablie (elle n'apparaît pas encore dans la courbe ci-dessus).");
+  }
+
   async function addMeasurement(payload: Record<string, unknown>) {
     setError(null);
-    const res = await fetch("/api/measurements", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      setError(data.message ?? "Une erreur est survenue.");
+    setQueuedMessage(null);
+
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      queueMeasurement(payload);
       return;
     }
-    await reloadAll();
+
+    try {
+      const res = await fetch("/api/measurements", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.message ?? "Une erreur est survenue.");
+        return;
+      }
+      await reloadAll();
+    } catch {
+      // Échec réseau en cours de requête (pas seulement détecté à l'avance) :
+      // même discipline que SessionFlow.tsx, on ne perd pas la saisie.
+      queueMeasurement(payload);
+    }
   }
 
   if (loading) {
@@ -118,6 +148,10 @@ export function SuiviFlow() {
         <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
           {error}
         </p>
+      )}
+
+      {queuedMessage && (
+        <p className="rounded-lg bg-orange-50 px-3 py-2 text-sm text-orange-700">{queuedMessage}</p>
       )}
 
       <PainSection points={pain} />

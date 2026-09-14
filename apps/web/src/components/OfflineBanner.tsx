@@ -4,9 +4,12 @@ import { useEffect, useState } from "react";
 import { getConflictCount, getPendingCount, onQueueChanged, syncNow } from "@/lib/offlineStorage";
 
 /**
- * Indicateur hors connexion + synchronisation (§54, §10) — Sprint 12.
- * Affiché sur les pages où des écritures hors connexion sont possibles
- * (aujourd'hui : la séance, voir SessionFlow.tsx). Se synchronise
+ * Indicateur hors connexion + synchronisation (§54, §10) — Sprint 12,
+ * étendu au Sprint 24 (14/09/2026) aux mesures de suivi (`SuiviFlow.tsx`)
+ * et au profil patient (`PatientProfileForm.tsx`), en plus de la séance
+ * (`SessionFlow.tsx`) — la file d'attente elle-même (`offlineQueue.ts`)
+ * était déjà générique par entité, seuls ces deux écrans ne l'utilisaient
+ * pas encore et échouaient silencieusement hors connexion. Se synchronise
  * automatiquement dès que la connexion revient (évènement `online`), et
  * propose un bouton manuel — jamais de synchronisation silencieuse qui
  * cacherait un conflit à l'utilisateur (§79).
@@ -71,7 +74,9 @@ export function OfflineBanner() {
     >
       {!isOnline && <p>Vous êtes hors connexion. Vos actions sont enregistrées et seront synchronisées.</p>}
       {pending > 0 && <p>{pending} action(s) en attente de synchronisation.</p>}
-      {conflicts > 0 && <p>{conflicts} action(s) n'ont pas pu être synchronisées (conflit). Voir le détail dans la séance concernée.</p>}
+      {conflicts > 0 && (
+        <p>{conflicts} action(s) n'ont pas pu être synchronisées (conflit). Réessayez l'action concernée (séance, mesure ou profil) depuis l'écran où vous l'avez saisie.</p>
+      )}
       {isOnline && pending > 0 && (
         <button type="button" onClick={trySync} disabled={syncing} className="mt-1 underline disabled:opacity-50">
           {syncing ? "Synchronisation…" : "Synchroniser maintenant"}

@@ -12,6 +12,7 @@ import {
 import { getDictionary } from "@/lib/i18n";
 import { Field } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
+import { enqueueOperation } from "@/lib/offlineStorage";
 
 const dict = getDictionary();
 
@@ -100,6 +101,35 @@ export function PatientProfileForm() {
       reminderTime: String(formData.get("reminderTime") || "09:00"),
     };
 
+    // Sprint 24 (14/09/2026, Priorité 5 de Feuille_de_route_prioritaire_20260912.docx) :
+    // avant ce correctif, une modification de profil hors connexion échouait
+    // simplement (§54 demande explicitement une mise en file, pas un échec
+    // silencieux) — contrairement à la séance (SessionFlow.tsx), qui utilise
+    // déjà offlineQueue.ts depuis le Sprint 12. La file elle-même était déjà
+    // générique par entité ; seul ce formulaire ne l'utilisait pas encore.
+    // `PUT /api/profile` étant un upsert complet (jamais une fusion), une
+    // nouvelle soumission avant synchronisation remplace simplement la
+    // précédente dans la file — comportement correct pour ce type d'écriture,
+    // aucune logique de dépendance (`dependsOnOperationId`) n'est nécessaire.
+    function queueProfileUpdate() {
+      enqueueOperation({ id: crypto.randomUUID(), entityType: "profile", method: "PUT", url: "/api/profile", body: payload });
+      if (hadProfile) {
+        setSuccessMessage("Hors connexion : vos informations seront synchronisées dès que la connexion sera rétablie.");
+      } else {
+        // Parcours d'inscription (§10) : ne jamais bloquer sur une coupure
+        // réseau. AssessmentFlow.tsx ne dépend pas d'un profil déjà persisté
+        // en base (il lit sa propre pathologie choisie par l'utilisateur), la
+        // suite du parcours peut donc continuer normalement.
+        router.push("/evaluation");
+      }
+    }
+
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      queueProfileUpdate();
+      setSubmitting(false);
+      return;
+    }
+
     try {
       const res = await fetch("/api/profile", {
         method: "PUT",
@@ -123,7 +153,9 @@ export function PatientProfileForm() {
         router.push("/evaluation");
       }
     } catch {
-      setFormError(dict.common.genericError);
+      // Échec réseau en cours de requête (pas seulement détecté à l'avance) :
+      // même discipline que SessionFlow.tsx, on ne perd pas la saisie.
+      queueProfileUpdate();
     } finally {
       setSubmitting(false);
     }
