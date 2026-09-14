@@ -1,9 +1,19 @@
 import { NextResponse } from "next/server";
 import { getWeekBounds, sessionDurationMinutes } from "@apa/domain";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getPremiumStatus } from "@/lib/premiumAccess";
 
 const DEFAULT_WEEKS = 8;
 const MAX_WEEKS = 26;
+
+/**
+ * §48, Sprint 24 (14/09/2026, Q4 « a » validée) : au-delà de cette fenêtre,
+ * l'historique complet des statistiques devient une fonctionnalité premium.
+ * Valeur choisie par défaut par Claude (≈ 30 jours), faute de chiffre précis
+ * dans la proposition validée — voir docs/DECISIONS.md, Dr Nikiema peut
+ * ajuster cette seule constante à tout moment.
+ */
+const FREE_HISTORY_MAX_WEEKS = 4;
 
 /**
  * §33 « Progression » — courbes « activité » et « séances » — Sprint 9.
@@ -11,6 +21,14 @@ const MAX_WEEKS = 26;
  * dernières semaines (8 par défaut). Purement arithmétique : aucune
  * interprétation de la tendance n'est faite ici (même principe que §34 pour
  * la douleur).
+ *
+ * Sprint 24 (14/09/2026) : la fenêtre est plafonnée à `FREE_HISTORY_MAX_WEEKS`
+ * pour un compte gratuit (au lieu de `MAX_WEEKS`) — voir
+ * apps/web/src/lib/premiumAccess.ts. Le plafonnement reste silencieux (comme
+ * le plafonnement à `MAX_WEEKS` déjà existant) : aucune erreur bloquante,
+ * seulement une fenêtre plus courte ; `isPremium`/`maxWeeksAllowed` sont
+ * renvoyés pour permettre à l'interface d'afficher une invitation à passer au
+ * premium le cas échéant.
  */
 export async function GET(request: Request) {
   const supabase = createSupabaseServerClient();
@@ -22,9 +40,14 @@ export async function GET(request: Request) {
     return NextResponse.json({ message: "Non authentifié." }, { status: 401 });
   }
 
+  const { isPremium } = await getPremiumStatus(supabase, user.id);
+  const maxWeeksAllowed = isPremium ? MAX_WEEKS : FREE_HISTORY_MAX_WEEKS;
+
   const { searchParams } = new URL(request.url);
   const requestedWeeks = Number(searchParams.get("weeks"));
-  const weeks = Number.isFinite(requestedWeeks) && requestedWeeks > 0 ? Math.min(requestedWeeks, MAX_WEEKS) : DEFAULT_WEEKS;
+  const weeks = Number.isFinite(requestedWeeks) && requestedWeeks > 0
+    ? Math.min(requestedWeeks, maxWeeksAllowed)
+    : Math.min(DEFAULT_WEEKS, maxWeeksAllowed);
 
   const { weekStart: currentWeekStart } = getWeekBounds(new Date());
   const earliestWeekStart = new Date(currentWeekStart);
@@ -61,5 +84,5 @@ export async function GET(request: Request) {
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([weekStart, values]) => ({ weekStart, ...values }));
 
-  return NextResponse.json({ weeks: series });
+  return NextResponse.json({ weeks: series, isPremium, maxWeeksAllowed });
 }

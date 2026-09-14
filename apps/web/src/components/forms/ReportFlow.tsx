@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { PATHOLOGY_CODES, PATHOLOGY_LABELS_FR, type PathologyCode } from "@apa/domain";
 import { Button } from "@/components/ui/Button";
 
@@ -24,10 +25,12 @@ export function ReportFlow() {
   const [userNote, setUserNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [requiresPremium, setRequiresPremium] = useState(false);
 
   async function generateReport() {
     setSubmitting(true);
     setError(null);
+    setRequiresPremium(false);
     try {
       const res = await fetch("/api/reports/pdf", {
         method: "POST",
@@ -43,6 +46,7 @@ export function ReportFlow() {
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         setError(data.message ?? "Une erreur est survenue lors de la génération du rapport.");
+        setRequiresPremium(Boolean(data.premiumRequired));
         return;
       }
 
@@ -108,6 +112,14 @@ export function ReportFlow() {
       {error && (
         <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
           {error}
+          {requiresPremium && (
+            <>
+              {" "}
+              <Link href="/abonnement" className="underline">
+                Voir les offres premium
+              </Link>
+            </>
+          )}
         </p>
       )}
 

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { professionalLinkInviteSchema } from "@apa/domain";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/serviceRole";
+import { getPremiumStatus } from "@/lib/premiumAccess";
 
 /**
  * §41, Sprint 23 (13/09/2026) — invitations professionnel de santé, CÔTÉ
@@ -63,6 +64,23 @@ export async function POST(request: Request) {
   const parsed = professionalLinkInviteSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ message: "Email invalide.", issues: parsed.error.issues }, { status: 422 });
+  }
+
+  // §48, Sprint 24 (14/09/2026, Q4 « a » validée) : inviter un professionnel
+  // de santé est réservé aux comptes premium actifs — voir
+  // apps/web/src/lib/premiumAccess.ts. Ne bloque QUE la création d'une
+  // nouvelle invitation : un lien déjà `authorized` avant ce verrouillage
+  // (ou pendant une période d'essai passée) reste consultable normalement
+  // via GET/PATCH, qui restent inchangés.
+  const { isPremium } = await getPremiumStatus(supabase, user.id);
+  if (!isPremium) {
+    return NextResponse.json(
+      {
+        message: "L'espace professionnel de santé (partage de votre suivi avec un professionnel) est réservé à l'abonnement premium.",
+        premiumRequired: true,
+      },
+      { status: 402 }
+    );
   }
 
   const serviceRole = createSupabaseServiceRoleClient();

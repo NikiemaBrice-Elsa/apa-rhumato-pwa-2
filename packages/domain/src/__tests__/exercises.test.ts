@@ -1,5 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { EXERCISE_CATEGORIES, EQUIPMENT_ITEMS, MEDICAL_VALIDATION_STATUSES, EXERCISE_PHASES, EXERCISE_PHASE_LABELS_FR } from "../exercises";
+import {
+  EXERCISE_CATEGORIES,
+  EQUIPMENT_ITEMS,
+  MEDICAL_VALIDATION_STATUSES,
+  EXERCISE_PHASES,
+  EXERCISE_PHASE_LABELS_FR,
+  EXERCISE_DIFFICULTY_LEVELS,
+  EXERCISE_DIFFICULTY_LABELS_FR,
+  BORG_CR10_MIN,
+  BORG_CR10_MAX,
+} from "../exercises";
+import { PROFILE_LEVELS } from "../programs";
 
 describe("EXERCISE_CATEGORIES (§25)", () => {
   it("couvre les six catégories du cahier des charges", () => {
@@ -30,5 +41,26 @@ describe("EXERCISE_PHASES (§28, réf. B8)", () => {
     for (const phase of EXERCISE_PHASES) {
       expect(EXERCISE_PHASE_LABELS_FR[phase]).toBeTruthy();
     }
+  });
+});
+
+/** §58, Sprint 24 (14/09/2026), Q2 validée : format débutant/intermédiaire/avancé
+ * (réutilisation stricte de PROFILE_LEVELS) + Borg CR10 (0-10). */
+describe("EXERCISE_DIFFICULTY_LEVELS (§58, Sprint 24)", () => {
+  it("reprend exactement le même vocabulaire que PROFILE_LEVELS (§30)", () => {
+    expect(EXERCISE_DIFFICULTY_LEVELS).toEqual(PROFILE_LEVELS);
+  });
+
+  it("chaque niveau a un libellé FR", () => {
+    for (const level of EXERCISE_DIFFICULTY_LEVELS) {
+      expect(EXERCISE_DIFFICULTY_LABELS_FR[level]).toBeTruthy();
+    }
+  });
+});
+
+describe("BORG_CR10_MIN / BORG_CR10_MAX (§58, réf. B6, Sprint 24)", () => {
+  it("couvre l'échelle complète de Borg CR10 (0 à 10)", () => {
+    expect(BORG_CR10_MIN).toBe(0);
+    expect(BORG_CR10_MAX).toBe(10);
   });
 });

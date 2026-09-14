@@ -48,6 +48,32 @@ export const MEDICAL_VALIDATION_STATUSES = ["draft", "pending_validation", "vali
 export type MedicalValidationStatus = (typeof MEDICAL_VALIDATION_STATUSES)[number];
 
 /**
+ * §58, Sprint 24 (14/09/2026) : format de difficulté par exercice, validé
+ * par Dr Nikiema (Question 2 « a » du document
+ * Propositions_Reformulation_Echelle_Premium_20260913.docx) — reprend
+ * EXACTEMENT le même vocabulaire que `PROFILE_LEVELS`
+ * (packages/domain/src/programs.ts, §30) plutôt que d'introduire une
+ * troisième échelle. Dupliqué ici (et non importé depuis `programs.ts`)
+ * pour éviter une dépendance circulaire — `programs.ts` importe déjà
+ * `MedicalValidationStatus` depuis ce fichier. Les deux listes DOIVENT
+ * rester identiques ; voir aussi `packages/domain/src/__tests__/exercises.test.ts`.
+ */
+export const EXERCISE_DIFFICULTY_LEVELS = ["debutant", "intermediaire", "avance"] as const;
+export type ExerciseDifficultyLevel = (typeof EXERCISE_DIFFICULTY_LEVELS)[number];
+
+export const EXERCISE_DIFFICULTY_LABELS_FR: Record<ExerciseDifficultyLevel, string> = {
+  debutant: "Débutant",
+  intermediaire: "Intermédiaire",
+  avance: "Avancé",
+};
+
+/** Borne d'une fourchette d'intensité cible en échelle de Borg CR10 (0 =
+ * aucun effort, 10 = effort maximal — même échelle que `effort_percu_borg`,
+ * packages/domain/src/screening.ts, réf. B6). */
+export const BORG_CR10_MIN = 0;
+export const BORG_CR10_MAX = 10;
+
+/**
  * §28, réf. B8 (20/08/2026) : classement d'un exercice dans l'une des 3
  * phases d'une séance. `null`/absent = non classé — jamais une valeur
  * devinée (§57, §59) ; voir `infra/db/migrations/0014_...sql`.
@@ -73,6 +99,9 @@ export interface Exercise {
   category: ExerciseCategory;
   phase?: ExercisePhase | null;
   difficulty?: string | null;
+  /** §58, Sprint 24 : niveau affiché au patient (Débutant/Intermédiaire/Avancé).
+   * Distinct de `difficulty` (texte libre, documentation clinique interne). */
+  difficultyLevel?: ExerciseDifficultyLevel | null;
   startingPosition?: string | null;
   executionSteps?: string | null;
   breathingInstruction?: string | null;
@@ -82,6 +111,10 @@ export interface Exercise {
   restTimeSeconds?: number | null;
   frequency?: string | null;
   intensity?: string | null;
+  /** §58, Sprint 24 : fourchette cible affichée au patient (Borg CR10).
+   * Distincts de `intensity` (texte libre, documentation clinique interne). */
+  intensityBorgMin?: number | null;
+  intensityBorgMax?: number | null;
   progression?: string | null;
   regression?: string | null;
   contraindications?: string | null;

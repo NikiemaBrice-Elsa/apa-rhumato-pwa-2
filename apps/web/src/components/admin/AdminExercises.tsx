@@ -6,6 +6,8 @@ import {
   EXERCISE_CATEGORY_LABELS_FR,
   EXERCISE_PHASES,
   EXERCISE_PHASE_LABELS_FR,
+  EXERCISE_DIFFICULTY_LEVELS,
+  EXERCISE_DIFFICULTY_LABELS_FR,
   EQUIPMENT_ITEMS,
   EQUIPMENT_LABELS_FR,
   PATHOLOGY_CODES,
@@ -26,6 +28,7 @@ interface ExerciseRow {
   category: string;
   phase: string | null;
   difficulty: string | null;
+  difficulty_level: string | null;
   starting_position: string | null;
   execution_steps: string | null;
   breathing_instruction: string | null;
@@ -35,6 +38,8 @@ interface ExerciseRow {
   rest_time_seconds: number | null;
   frequency: string | null;
   intensity: string | null;
+  intensity_borg_min: number | null;
+  intensity_borg_max: number | null;
   progression: string | null;
   regression: string | null;
   contraindications: string | null;
@@ -66,6 +71,7 @@ function emptyForm() {
     category: EXERCISE_CATEGORIES[0],
     phase: "" as string,
     difficulty: "",
+    difficultyLevel: "" as string,
     startingPosition: "",
     executionSteps: "",
     breathingInstruction: "",
@@ -75,6 +81,8 @@ function emptyForm() {
     restTimeSeconds: "",
     frequency: "",
     intensity: "",
+    intensityBorgMin: "",
+    intensityBorgMax: "",
     progression: "",
     regression: "",
     contraindications: "",
@@ -100,6 +108,7 @@ function toFormValues(e: ExerciseRow) {
     category: e.category,
     phase: e.phase ?? "",
     difficulty: e.difficulty ?? "",
+    difficultyLevel: e.difficulty_level ?? "",
     startingPosition: e.starting_position ?? "",
     executionSteps: e.execution_steps ?? "",
     breathingInstruction: e.breathing_instruction ?? "",
@@ -109,6 +118,8 @@ function toFormValues(e: ExerciseRow) {
     restTimeSeconds: e.rest_time_seconds?.toString() ?? "",
     frequency: e.frequency ?? "",
     intensity: e.intensity ?? "",
+    intensityBorgMin: e.intensity_borg_min?.toString() ?? "",
+    intensityBorgMax: e.intensity_borg_max?.toString() ?? "",
     progression: e.progression ?? "",
     regression: e.regression ?? "",
     contraindications: e.contraindications ?? "",
@@ -170,10 +181,13 @@ export function AdminExercises() {
       ...form,
       // "" ("non classé") doit devenir undefined, pas une valeur d'enum invalide.
       phase: form.phase || undefined,
+      difficultyLevel: form.difficultyLevel || undefined,
       durationSeconds: form.durationSeconds ? Number(form.durationSeconds) : undefined,
       repetitions: form.repetitions ? Number(form.repetitions) : undefined,
       sets: form.sets ? Number(form.sets) : undefined,
       restTimeSeconds: form.restTimeSeconds ? Number(form.restTimeSeconds) : undefined,
+      intensityBorgMin: form.intensityBorgMin !== "" ? Number(form.intensityBorgMin) : undefined,
+      intensityBorgMax: form.intensityBorgMax !== "" ? Number(form.intensityBorgMax) : undefined,
       scientificReferenceIds: form.scientificReferenceIds
         .split(",")
         .map((s) => s.trim())
@@ -323,6 +337,49 @@ export function AdminExercises() {
             </Field>
           </div>
 
+          {/* §58, Sprint 24 (14/09/2026, Q2 validée) : format affiché au
+              patient — distinct des champs "Difficulté"/"Intensité" texte
+              libre ci-dessus, qui restent la documentation clinique interne. */}
+          <div className="grid grid-cols-3 gap-3">
+            <Field label="Difficulté (affichée au patient)" htmlFor="ex-difficulty-level" hint="Non classé si vide">
+              <select
+                id="ex-difficulty-level"
+                className="w-full rounded border border-primary-300 px-3 py-2"
+                value={form.difficultyLevel}
+                onChange={(e) => setForm({ ...form, difficultyLevel: e.target.value })}
+              >
+                <option value="">Non classé</option>
+                {EXERCISE_DIFFICULTY_LEVELS.map((level) => (
+                  <option key={level} value={level}>
+                    {EXERCISE_DIFFICULTY_LABELS_FR[level]}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Intensité cible — Borg CR10, min" htmlFor="ex-intensity-borg-min" hint="0 à 10, non classé si vide">
+              <input
+                id="ex-intensity-borg-min"
+                type="number"
+                min={0}
+                max={10}
+                className="w-full rounded border border-primary-300 px-3 py-2"
+                value={form.intensityBorgMin}
+                onChange={(e) => setForm({ ...form, intensityBorgMin: e.target.value })}
+              />
+            </Field>
+            <Field label="Intensité cible — Borg CR10, max" htmlFor="ex-intensity-borg-max" hint="0 à 10, non classé si vide">
+              <input
+                id="ex-intensity-borg-max"
+                type="number"
+                min={0}
+                max={10}
+                className="w-full rounded border border-primary-300 px-3 py-2"
+                value={form.intensityBorgMax}
+                onChange={(e) => setForm({ ...form, intensityBorgMax: e.target.value })}
+              />
+            </Field>
+          </div>
+
           <Field label="Progression" htmlFor="ex-progression">
             <textarea id="ex-progression" rows={2} className="w-full rounded border border-primary-300 px-3 py-2" value={form.progression} onChange={(e) => setForm({ ...form, progression: e.target.value })} />
           </Field>
@@ -391,6 +448,10 @@ export function AdminExercises() {
                 <p className="text-xs text-primary-500">
                   {EXERCISE_CATEGORY_LABELS_FR[e.category as keyof typeof EXERCISE_CATEGORY_LABELS_FR] ?? e.category} ·{" "}
                   {e.phase ? EXERCISE_PHASE_LABELS_FR[e.phase as keyof typeof EXERCISE_PHASE_LABELS_FR] ?? e.phase : "non classé"} ·{" "}
+                  {e.difficulty_level
+                    ? EXERCISE_DIFFICULTY_LABELS_FR[e.difficulty_level as keyof typeof EXERCISE_DIFFICULTY_LABELS_FR]
+                    : "difficulté non classée"}{" "}
+                  ·{" "}
                   {STATUS_LABELS_FR[e.medical_validation_status]}
                 </p>
               </div>

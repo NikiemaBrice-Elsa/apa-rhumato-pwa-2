@@ -66,6 +66,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     updates.category = input.category;
     updates.phase = input.phase || null;
     updates.difficulty = input.difficulty || null;
+    updates.difficulty_level = input.difficultyLevel || null;
     updates.starting_position = input.startingPosition || null;
     updates.execution_steps = input.executionSteps || null;
     updates.breathing_instruction = input.breathingInstruction || null;
@@ -75,6 +76,8 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     updates.rest_time_seconds = input.restTimeSeconds ?? null;
     updates.frequency = input.frequency || null;
     updates.intensity = input.intensity || null;
+    updates.intensity_borg_min = input.intensityBorgMin ?? null;
+    updates.intensity_borg_max = input.intensityBorgMax ?? null;
     updates.progression = input.progression || null;
     updates.regression = input.regression || null;
     updates.contraindications = input.contraindications || null;

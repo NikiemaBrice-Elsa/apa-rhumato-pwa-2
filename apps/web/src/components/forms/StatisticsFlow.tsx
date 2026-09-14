@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import {
   computePsfsAverageScore,
   PSFS_MIN_ACTIVITIES,
@@ -87,6 +88,8 @@ function emptyPsfsActivities() {
 export function StatisticsFlow() {
   const [weekly, setWeekly] = useState<WeeklyStats | null>(null);
   const [history, setHistory] = useState<WeekBucket[]>([]);
+  const [historyIsPremium, setHistoryIsPremium] = useState(true);
+  const [historyMaxWeeks, setHistoryMaxWeeks] = useState<number | null>(null);
   const [capacity, setCapacity] = useState<FunctionalCapacityAssessmentRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -124,7 +127,10 @@ export function StatisticsFlow() {
       try {
         const [weeklyRes, historyRes] = await Promise.all([
           fetch("/api/statistics/weekly"),
-          fetch("/api/statistics/history?weeks=8"),
+          // §48, Sprint 24 : on demande toujours la fenêtre maximale (26 semaines) —
+          // c'est l'API qui plafonne silencieusement à 4 semaines pour un compte
+          // gratuit et renvoie `isPremium`/`maxWeeksAllowed` pour l'affichage.
+          fetch("/api/statistics/history?weeks=26"),
         ]);
         const [weeklyData, historyData] = await Promise.all([weeklyRes.json(), historyRes.json()]);
         if (!weeklyRes.ok || !historyRes.ok) {
@@ -133,6 +139,8 @@ export function StatisticsFlow() {
         }
         setWeekly(weeklyData);
         setHistory(historyData.weeks ?? []);
+        setHistoryIsPremium(Boolean(historyData.isPremium));
+        setHistoryMaxWeeks(typeof historyData.maxWeeksAllowed === "number" ? historyData.maxWeeksAllowed : null);
         await Promise.all([loadCapacity(), loadProgression()]);
       } catch {
         setError("Impossible de charger vos statistiques pour le moment.");
@@ -268,6 +276,16 @@ export function StatisticsFlow() {
         <h2 className="font-semibold text-primary-900">Progression — minutes d'activité par semaine</h2>
         <MiniLineChart points={minutesSeries} unit=" min" />
       </section>
+
+      {!historyIsPremium && (
+        <p className="text-sm text-primary-500">
+          Historique limité aux {historyMaxWeeks ?? 4} dernières semaines pour un compte gratuit.{" "}
+          <Link href="/abonnement" className="underline">
+            Passez au premium
+          </Link>{" "}
+          pour retrouver l'historique complet.
+        </p>
+      )}
 
       {progression.length > 0 && (
         <section className="flex flex-col gap-3">

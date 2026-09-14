@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
+import Link from "next/link";
 import { PROFESSIONAL_LINK_STATUS_LABELS_FR } from "@apa/domain";
 import { Button } from "@/components/ui/Button";
 import { Field } from "@/components/ui/Field";
@@ -31,6 +32,7 @@ export function ProfessionalLinksFlow() {
   const [email, setEmail] = useState("");
   const [inviting, setInviting] = useState(false);
   const [inviteError, setInviteError] = useState<string | null>(null);
+  const [inviteRequiresPremium, setInviteRequiresPremium] = useState(false);
   const [inviteSuccess, setInviteSuccess] = useState(false);
   const [actioning, setActioning] = useState<string | null>(null);
 
@@ -53,6 +55,7 @@ export function ProfessionalLinksFlow() {
     event.preventDefault();
     setInviting(true);
     setInviteError(null);
+    setInviteRequiresPremium(false);
     setInviteSuccess(false);
     try {
       const res = await fetch("/api/professional-links", {
@@ -63,6 +66,7 @@ export function ProfessionalLinksFlow() {
       const data = await res.json();
       if (!res.ok) {
         setInviteError(data.message ?? "Une erreur est survenue.");
+        setInviteRequiresPremium(Boolean(data.premiumRequired));
         return;
       }
       setInviteSuccess(true);
@@ -126,6 +130,14 @@ export function ProfessionalLinksFlow() {
         {inviteError && (
           <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
             {inviteError}
+            {inviteRequiresPremium && (
+              <>
+                {" "}
+                <Link href="/abonnement" className="underline">
+                  Voir les offres premium
+                </Link>
+              </>
+            )}
           </p>
         )}
         {inviteSuccess && <p className="text-sm text-green-700">Invitation envoyée.</p>}

@@ -140,6 +140,29 @@ export function getSubscriptionDaysRemaining(expiresAt: string | null | undefine
 }
 
 /**
+ * Sprint 24 (14/09/2026) : un patient a-t-il un accès premium ACTIF en ce
+ * moment ? Combine deux conditions distinctes que `isSubscriptionCurrentlyActive`
+ * seule ne suffit pas à vérifier : le plan doit être un plan payant
+ * (`planCode !== 'free'`) ET la souscription doit être active au sens de
+ * `isSubscriptionCurrentlyActive` — une ligne `subscriptions` avec
+ * `plan_code = 'free'` peut très bien avoir `status = 'active'` (compte
+ * gratuit "actif" au sens où il existe), sans que cela ouvre le moindre
+ * accès premium. Utilisé pour verrouiller les 4 fonctionnalités validées le
+ * 14/09/2026 (Question 4 « a » du document
+ * Propositions_Reformulation_Echelle_Premium_20260913.docx) : espace
+ * professionnel de santé (§41), génération illimitée du rapport PDF,
+ * historique complet des statistiques, coach vocal audio complet.
+ */
+export function hasActivePremiumSubscription(
+  subscription: Pick<Subscription, "planCode" | "status" | "expiresAt"> | null | undefined,
+  now: Date
+): boolean {
+  if (!subscription) return false;
+  if (subscription.planCode === "free") return false;
+  return isSubscriptionCurrentlyActive(subscription, now);
+}
+
+/**
  * §48 : cohérence tarifaire d'un plan — le plan `free` ne doit jamais
  * porter de prix ni de périodicité ; un plan premium doit toujours porter
  * un prix strictement positif ET une périodicité. Utilisé côté administration

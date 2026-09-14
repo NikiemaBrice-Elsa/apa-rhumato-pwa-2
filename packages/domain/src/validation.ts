@@ -307,6 +307,9 @@ export const exerciseUpsertSchema = z.object({
   // packages/domain/src/exercises.ts#EXERCISE_PHASES), jamais de valeur par défaut devinée.
   phase: z.enum(["echauffement", "principal", "retour_au_calme"]).optional(),
   difficulty: z.string().max(100).optional(),
+  // §58, Sprint 24 (14/09/2026, Q2 validée) : format affiché au patient,
+  // distinct de `difficulty` ci-dessus (texte libre, documentation interne).
+  difficultyLevel: z.enum(["debutant", "intermediaire", "avance"]).optional(),
   startingPosition: z.string().max(1000).optional(),
   executionSteps: z.string().max(4000).optional(),
   breathingInstruction: z.string().max(1000).optional(),
@@ -316,6 +319,10 @@ export const exerciseUpsertSchema = z.object({
   restTimeSeconds: z.number().int().nonnegative().optional(),
   frequency: z.string().max(200).optional(),
   intensity: z.string().max(200).optional(),
+  // §58, Sprint 24 (14/09/2026, Q2 validée) : fourchette Borg CR10 affichée
+  // au patient, distincte de `intensity` ci-dessus (texte libre interne).
+  intensityBorgMin: z.number().int().min(0).max(10).optional(),
+  intensityBorgMax: z.number().int().min(0).max(10).optional(),
   progression: z.string().max(1000).optional(),
   regression: z.string().max(1000).optional(),
   contraindications: z.string().max(2000).optional(),
@@ -330,7 +337,10 @@ export const exerciseUpsertSchema = z.object({
   pathologies: z.array(PATHOLOGY_CODE_ENUM).default([]),
   objectives: z.array(z.string()).default([]),
   scientificReferenceIds: z.array(z.string()).default([]),
-});
+}).refine(
+  (data) => data.intensityBorgMin === undefined || data.intensityBorgMax === undefined || data.intensityBorgMin <= data.intensityBorgMax,
+  { message: "La borne basse de l'intensité Borg doit être inférieure ou égale à la borne haute.", path: ["intensityBorgMin"] }
+);
 export type ExerciseUpsertInput = z.infer<typeof exerciseUpsertSchema>;
 
 export const exerciseStatusSchema = z.object({

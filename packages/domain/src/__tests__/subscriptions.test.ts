@@ -4,6 +4,7 @@ import {
   computeSubscriptionExpiry,
   isValidPlanPricing,
   getSubscriptionDaysRemaining,
+  hasActivePremiumSubscription,
 } from "../subscriptions";
 
 describe("isSubscriptionCurrentlyActive (§48)", () => {
@@ -74,6 +75,45 @@ describe("getSubscriptionDaysRemaining", () => {
 
   it("retourne une valeur négative ou nulle si déjà expiré", () => {
     expect(getSubscriptionDaysRemaining("2026-09-01T12:00:00Z", now)).toBeLessThanOrEqual(0);
+  });
+});
+
+/** Sprint 24 (14/09/2026), Question 4 « a » validée : verrouillage des 4
+ * fonctionnalités premium — cette fonction est le point de vérité unique
+ * utilisé par les 4 gates (espace professionnel, rapport PDF, historique
+ * statistiques, coach vocal audio). */
+describe("hasActivePremiumSubscription (§48, Sprint 24)", () => {
+  const now = new Date("2026-09-14T12:00:00Z");
+
+  it("refuse l'absence de souscription", () => {
+    expect(hasActivePremiumSubscription(null, now)).toBe(false);
+    expect(hasActivePremiumSubscription(undefined, now)).toBe(false);
+  });
+
+  it("refuse le plan gratuit même avec status 'active'", () => {
+    expect(hasActivePremiumSubscription({ planCode: "free", status: "active", expiresAt: null }, now)).toBe(false);
+  });
+
+  it("accepte un plan premium actif sans date d'expiration", () => {
+    expect(hasActivePremiumSubscription({ planCode: "premium_monthly", status: "active", expiresAt: null }, now)).toBe(true);
+  });
+
+  it("accepte un plan premium actif avec expiration future", () => {
+    expect(
+      hasActivePremiumSubscription({ planCode: "premium_yearly", status: "active", expiresAt: "2026-12-01T00:00:00Z" }, now)
+    ).toBe(true);
+  });
+
+  it("refuse un plan premium expiré", () => {
+    expect(
+      hasActivePremiumSubscription({ planCode: "premium_monthly", status: "active", expiresAt: "2026-01-01T00:00:00Z" }, now)
+    ).toBe(false);
+  });
+
+  it("refuse un plan premium non actif (pending/expired/canceled)", () => {
+    expect(hasActivePremiumSubscription({ planCode: "premium_monthly", status: "pending", expiresAt: null }, now)).toBe(false);
+    expect(hasActivePremiumSubscription({ planCode: "premium_monthly", status: "expired", expiresAt: null }, now)).toBe(false);
+    expect(hasActivePremiumSubscription({ planCode: "premium_monthly", status: "canceled", expiresAt: null }, now)).toBe(false);
   });
 });
 

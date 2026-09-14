@@ -1,8 +1,9 @@
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { EXERCISE_CATEGORY_LABELS_FR, type ExerciseCategory } from "@apa/domain";
+import { EXERCISE_CATEGORY_LABELS_FR, EXERCISE_DIFFICULTY_LABELS_FR, type ExerciseCategory, type ExerciseDifficultyLevel } from "@apa/domain";
 import { ExerciseDetails } from "@/components/exercises/ExerciseDetails";
 import { AudioCoach } from "@/components/exercises/AudioCoach";
+import { getPremiumStatus } from "@/lib/premiumAccess";
 
 interface ExerciseRow {
   exercise_id: string;
@@ -10,6 +11,11 @@ interface ExerciseRow {
   short_description: string;
   category: ExerciseCategory;
   difficulty: string | null;
+  /** §58, Sprint 24 : format affiché au patient (Débutant/Intermédiaire/Avancé). */
+  difficulty_level: ExerciseDifficultyLevel | null;
+  /** §58, Sprint 24 : fourchette cible affichée au patient (Borg CR10). */
+  intensity_borg_min: number | null;
+  intensity_borg_max: number | null;
   starting_position: string | null;
   execution_steps: string | null;
   breathing_instruction: string | null;
@@ -41,6 +47,8 @@ export default async function ExercisesPage() {
     redirect("/connexion");
   }
 
+  const { isPremium } = await getPremiumStatus(supabase, user.id);
+
   // 10/09/2026 : précautions, contre-indications et critères d'arrêt sont
   // déjà validés pour les exercices en ligne mais n'étaient jamais
   // transmis ici — voir ExerciseDetails.tsx pour le détail de la découverte
@@ -50,7 +58,7 @@ export default async function ExercisesPage() {
   const { data } = await supabase
     .from("exercise_library")
     .select(
-      "exercise_id, name, short_description, category, difficulty, starting_position, execution_steps, breathing_instruction, duration_seconds, repetitions, sets, rest_time_seconds, precautions, contraindications, stop_criteria, audio_preparation_url, audio_exercise_url"
+      "exercise_id, name, short_description, category, difficulty, difficulty_level, intensity_borg_min, intensity_borg_max, starting_position, execution_steps, breathing_instruction, duration_seconds, repetitions, sets, rest_time_seconds, precautions, contraindications, stop_criteria, audio_preparation_url, audio_exercise_url"
     )
     .order("name");
 
@@ -73,7 +81,10 @@ export default async function ExercisesPage() {
               <p className="text-sm text-primary-700">{exercise.short_description}</p>
               <p className="mt-1 text-xs text-primary-500">
                 {EXERCISE_CATEGORY_LABELS_FR[exercise.category]}
-                {exercise.difficulty ? ` · ${exercise.difficulty}` : ""}
+                {exercise.difficulty_level ? ` · ${EXERCISE_DIFFICULTY_LABELS_FR[exercise.difficulty_level]}` : ""}
+                {exercise.intensity_borg_min != null && exercise.intensity_borg_max != null
+                  ? ` · Intensité cible : ${exercise.intensity_borg_min}-${exercise.intensity_borg_max}/10`
+                  : ""}
               </p>
               <ExerciseDetails
                 ex={{
@@ -94,6 +105,7 @@ export default async function ExercisesPage() {
                   audioPreparationUrl: exercise.audio_preparation_url,
                   audioExerciseUrl: exercise.audio_exercise_url,
                 }}
+                isPremium={isPremium}
               />
             </li>
           ))}

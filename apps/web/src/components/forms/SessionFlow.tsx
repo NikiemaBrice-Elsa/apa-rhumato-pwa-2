@@ -84,9 +84,16 @@ interface SessionFlowProps {
   /** Réf. B11 (31/08/2026) : pré-sélection depuis la « séance du jour ». */
   initialPathology?: PathologyCode;
   initialPlannedSessionId?: string;
+  /**
+   * §48, Sprint 24 (14/09/2026, Q4 « a » validée) : statut premium calculé
+   * une seule fois côté serveur (voir apps/web/src/app/(dashboard)/seance/page.tsx
+   * et apps/web/src/lib/premiumAccess.ts) et transmis tel quel à AudioCoach —
+   * ce composant client ne recalcule jamais lui-même l'accès premium.
+   */
+  isPremium?: boolean;
 }
 
-export function SessionFlow({ initialPathology, initialPlannedSessionId }: SessionFlowProps = {}) {
+export function SessionFlow({ initialPathology, initialPlannedSessionId, isPremium = false }: SessionFlowProps = {}) {
   const [step, setStep] = useState<Step>(initialPathology ? "verification" : "pathology");
   const [pathology, setPathology] = useState<PathologyCode | null>(initialPathology ?? null);
   const [plannedSessionId] = useState<string | undefined>(initialPlannedSessionId);
@@ -352,7 +359,7 @@ export function SessionFlow({ initialPathology, initialPlannedSessionId }: Sessi
                                 <p className="font-medium text-primary-900">{ex.name}</p>
                                 {ex.shortDescription && <p className="text-sm text-primary-700">{ex.shortDescription}</p>}
                                 <ExerciseDetails ex={ex} />
-                                <AudioCoach ex={ex} />
+                                <AudioCoach ex={ex} isPremium={isPremium} />
                               </div>
                             </label>
                           </li>
@@ -377,7 +384,7 @@ export function SessionFlow({ initialPathology, initialPlannedSessionId }: Sessi
                         <p className="font-medium text-primary-900">{ex.name}</p>
                         {ex.shortDescription && <p className="text-sm text-primary-700">{ex.shortDescription}</p>}
                         <ExerciseDetails ex={ex} />
-                        <AudioCoach ex={ex} />
+                        <AudioCoach ex={ex} isPremium={isPremium} />
                       </div>
                     </label>
                   </li>

@@ -28,7 +28,7 @@ export async function GET(request: Request) {
   let query = supabase
     .from("exercise_library")
     .select(
-      "exercise_id, name, short_description, category, difficulty, equipment_required, thumbnail_url, exercise_pathologies(pathology_code)"
+      "exercise_id, name, short_description, category, difficulty, difficulty_level, intensity_borg_min, intensity_borg_max, equipment_required, thumbnail_url, exercise_pathologies(pathology_code)"
     )
     .order("name");
 

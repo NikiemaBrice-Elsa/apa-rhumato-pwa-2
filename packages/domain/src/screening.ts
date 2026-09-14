@@ -146,23 +146,27 @@ export const LOMBALGIE_COMMUNE_ITEMS = [
  * — CE NE SONT PAS des items du cahier des charges (§17-20). Validées et
  * activées le 20/08/2026 (réf. A1, A2 du questionnaire de validation
  * médicale) — voir infra/db/seed/0006_validation_medicale_dr_nikiema_20260820.sql.
+ *
+ * REFORMULÉ le 14/09/2026 (Sprint 24, Question 1 validée « a » du document
+ * Propositions_Reformulation_Echelle_Premium_20260913.docx) : ces trois
+ * items sont désormais dupliqués, avec un texte spécifique à chaque
+ * pathologie (« au niveau du genou »/« de la hanche »/« d'une articulation »)
+ * plutôt qu'un texte générique partagé — voir `ARTHROSE_GENOU_ITEMS`,
+ * `ARTHROSE_HANCHE_ITEMS`, `POLYARTHRITE_RHUMATOIDE_ITEMS`. Code, type et
+ * logique de dépistage strictement inchangés : uniquement le texte affiché.
  */
-const HOT_JOINT_FIELDS = [
-  { code: "gonflement", label: "Gonflement", type: "boolean" },
-  { code: "chaleur_locale", label: "Chaleur locale (articulation chaude)", type: "boolean" },
-  { code: "fievre", label: "Fièvre associée", type: "boolean" },
-] as const;
 
 /** §17 — Arthrose du genou : éléments à évaluer (pas de red flags formalisés
  * dans le cahier des charges). Items `gonflement_evolution`, `instabilite`
  * (converti en `select` à 3 niveaux) et `restrictions_pro_recentes` ajoutés
- * le 20/08/2026 (réf. D1, D3 du questionnaire de validation médicale). */
+ * le 20/08/2026 (réf. D1, D3 du questionnaire de validation médicale).
+ * Questions reformulées le 14/09/2026 (Sprint 24, Q1 validée). */
 export const ARTHROSE_GENOU_ITEMS = [
   { code: "douleur", label: "Douleur", type: "scale_0_10" },
-  { code: "gonflement", label: "Gonflement", type: "boolean" },
+  { code: "gonflement", label: "Avez-vous actuellement un gonflement au niveau du genou ?", type: "boolean" },
   {
     code: "gonflement_evolution",
-    label: "Évolution du gonflement, si présent",
+    label: "Si vous avez un gonflement, comment évolue-t-il ?",
     type: "select",
     options: [
       { value: 0, label: "Absent ou léger, stable, sans augmentation récente" },
@@ -172,7 +176,7 @@ export const ARTHROSE_GENOU_ITEMS = [
   },
   {
     code: "instabilite",
-    label: "Instabilité du genou",
+    label: "Ressentez-vous une instabilité au niveau du genou (sensation de dérobement ou de blocage) ?",
     type: "select",
     options: [
       { value: 0, label: "Aucune sensation d'instabilité, de dérobement ou de blocage" },
@@ -180,21 +184,41 @@ export const ARTHROSE_GENOU_ITEMS = [
       { value: 2, label: "Instabilité répétée, aggravée, associée à des chutes ou à un blocage" },
     ],
   },
-  { code: "limitation_importante", label: "Limitation importante", type: "boolean" },
-  { code: "capacite_marche", label: "Capacité de marche", type: "text" },
-  { code: "capacite_lever_chaise", label: "Capacité à se lever d'une chaise", type: "text" },
-  { code: "capacite_monter_marches", label: "Capacité à monter quelques marches", type: "text" },
-  { code: "chirurgie_recente", label: "Chirurgie récente (genou)", type: "boolean" },
-  { code: "traumatisme_recent", label: "Traumatisme récent (genou)", type: "boolean" },
+  {
+    code: "limitation_importante",
+    label: "Avez-vous une limitation importante et nouvelle dans vos mouvements ou vos activités à cause de votre genou ?",
+    type: "boolean",
+  },
+  { code: "capacite_marche", label: "Comment décririez-vous votre capacité à marcher actuellement ? (facultatif)", type: "text" },
+  {
+    code: "capacite_lever_chaise",
+    label: "Comment décririez-vous votre capacité à vous lever d'une chaise actuellement ? (facultatif)",
+    type: "text",
+  },
+  {
+    code: "capacite_monter_marches",
+    label: "Comment décririez-vous votre capacité à monter quelques marches actuellement ? (facultatif)",
+    type: "text",
+  },
+  { code: "chirurgie_recente", label: "Avez-vous eu une chirurgie récente au niveau du genou ?", type: "boolean" },
+  {
+    code: "traumatisme_recent",
+    label: "Avez-vous eu un traumatisme récent au niveau du genou (choc, chute, entorse...) ?",
+    type: "boolean",
+  },
   {
     code: "restrictions_pro_recentes",
     label:
       "Un professionnel de santé vous a-t-il donné des restrictions concernant l'appui, les mouvements ou l'activité physique ?",
     type: "boolean",
   },
-  { code: "autre_pathologie_modifiante", label: "Autre pathologie susceptible de modifier le programme", type: "text" },
-  { code: "chaleur_locale", label: "Chaleur locale (articulation chaude)", type: "boolean" },
-  { code: "fievre", label: "Fièvre associée", type: "boolean" },
+  {
+    code: "autre_pathologie_modifiante",
+    label: "Avez-vous une autre pathologie qui pourrait nécessiter d'adapter votre programme ? Si oui, laquelle ? (facultatif)",
+    type: "text",
+  },
+  { code: "chaleur_locale", label: "Votre genou est-il inhabituellement chaud au toucher ?", type: "boolean" },
+  { code: "fievre", label: "Avez-vous de la fièvre en ce moment ?", type: "boolean" },
 ] as const;
 
 /** §18 — Arthrose de hanche. Items `limitation_marche`/`limitation_mobilite`
@@ -220,12 +244,18 @@ export const ARTHROSE_GENOU_ITEMS = [
  * vert/orange/rouge du patient est simplement déterminé par ces règles déjà
  * en place, sans intervention du champ `statut_restrictions_hanche`.
  * L'usage d'une aide à la marche n'est explicitement PAS un critère
- * d'exclusion (confirmé par Dr Nikiema) — aucune règle ne s'appuie dessus. */
+ * d'exclusion (confirmé par Dr Nikiema) — aucune règle ne s'appuie dessus.
+ *
+ * Questions reformulées le 14/09/2026 (Sprint 24, Q1 validée) ; `gonflement`,
+ * `chaleur_locale` et `fievre` sont désormais des entrées explicites propres
+ * à la hanche (texte « ...au niveau de la hanche »), plutôt que le texte
+ * générique auparavant partagé via `HOT_JOINT_FIELDS` avec l'arthrose du
+ * genou et la polyarthrite rhumatoïde — code, type et logique inchangés. */
 export const ARTHROSE_HANCHE_ITEMS = [
   { code: "douleur", label: "Douleur", type: "scale_0_10" },
   {
     code: "limitation_marche",
-    label: "Limitation de la marche",
+    label: "Avez-vous une limitation pour marcher ?",
     type: "select",
     options: [
       { value: 0, label: "Marche possible sans aggravation ni nouvelle limitation" },
@@ -242,7 +272,7 @@ export const ARTHROSE_HANCHE_ITEMS = [
   },
   {
     code: "limitation_mobilite",
-    label: "Limitation de la mobilité de hanche",
+    label: "Avez-vous une limitation de mobilité au niveau de la hanche ?",
     type: "select",
     options: [
       {
@@ -256,10 +286,14 @@ export const ARTHROSE_HANCHE_ITEMS = [
       { value: 2, label: "Limitation brutale ou importante, blocage, douleur aiguë, ou aggravation rapide" },
     ],
   },
-  { code: "difficulte_se_lever", label: "Difficulté à se lever", type: "boolean" },
-  { code: "difficulte_escaliers", label: "Difficulté à monter les escaliers", type: "boolean" },
-  { code: "chirurgie_recente", label: "Chirurgie récente (hanche)", type: "boolean" },
-  { code: "traumatisme", label: "Traumatisme récent (hanche)", type: "boolean" },
+  { code: "difficulte_se_lever", label: "Avez-vous des difficultés à vous lever (d'une chaise, du lit) ?", type: "boolean" },
+  { code: "difficulte_escaliers", label: "Avez-vous des difficultés à monter les escaliers ?", type: "boolean" },
+  { code: "chirurgie_recente", label: "Avez-vous eu une chirurgie récente au niveau de la hanche ?", type: "boolean" },
+  {
+    code: "traumatisme",
+    label: "Avez-vous eu un traumatisme récent au niveau de la hanche (choc, chute...) ?",
+    type: "boolean",
+  },
   {
     code: "statut_restrictions_hanche",
     label: "Quelles sont, aujourd'hui, les consignes de votre professionnel de santé concernant votre hanche ?",
@@ -270,32 +304,56 @@ export const ARTHROSE_HANCHE_ITEMS = [
       { value: 2, label: "Restrictions actives, encore en cours" },
     ],
   },
-  { code: "remplacement_prothetique", label: "Remplacement prothétique éventuel", type: "boolean" },
-  { code: "autres_facteurs_securite", label: "Autres facteurs de sécurité", type: "text" },
-  ...HOT_JOINT_FIELDS,
+  { code: "remplacement_prothetique", label: "Avez-vous une prothèse de hanche ?", type: "boolean" },
+  {
+    code: "autres_facteurs_securite",
+    label: "Y a-t-il un autre élément important pour votre sécurité que vous souhaitez signaler ? (facultatif)",
+    type: "text",
+  },
+  { code: "gonflement", label: "Avez-vous actuellement un gonflement au niveau de la hanche ?", type: "boolean" },
+  { code: "chaleur_locale", label: "Votre hanche est-elle inhabituellement chaude au toucher ?", type: "boolean" },
+  { code: "fievre", label: "Avez-vous de la fièvre en ce moment ?", type: "boolean" },
 ] as const;
 
 /** §19 — Polyarthrite rhumatoïde. Libellé de `poussee_recente` remplacé le
  * 20/08/2026 par la question exacte proposée en réf. A3 du questionnaire de
  * validation médicale (une réponse « Oui » oriente désormais vers le statut
- * rouge, décision explicite de Dr Nikiema du même jour). */
+ * rouge, décision explicite de Dr Nikiema du même jour). Reste des questions
+ * reformulées le 14/09/2026 (Sprint 24, Q1 validée) ; `gonflement`,
+ * `chaleur_locale` et `fievre` sont désormais des entrées explicites propres
+ * à cette pathologie (texte « ...au niveau d'une articulation »), plutôt que
+ * le texte générique auparavant partagé via `HOT_JOINT_FIELDS`. */
 export const POLYARTHRITE_RHUMATOIDE_ITEMS = [
   { code: "activite_ressentie_maladie", label: "Activité ressentie de la maladie", type: "scale_0_10" },
   { code: "douleur", label: "Douleur", type: "scale_0_10" },
   { code: "fatigue", label: "Fatigue", type: "scale_0_10" },
-  { code: "articulations_symptomatiques", label: "Articulations symptomatiques", type: "text" },
-  { code: "atteinte_mains", label: "Atteinte des mains", type: "boolean" },
-  { code: "atteinte_pieds", label: "Atteinte des pieds", type: "boolean" },
-  { code: "limitation_fonctionnelle", label: "Limitation fonctionnelle", type: "boolean" },
+  {
+    code: "articulations_symptomatiques",
+    label: "Quelles articulations sont douloureuses ou gênantes en ce moment ? (facultatif)",
+    type: "text",
+  },
+  { code: "atteinte_mains", label: "Vos mains sont-elles touchées (douleur, gonflement, raideur) ?", type: "boolean" },
+  { code: "atteinte_pieds", label: "Vos pieds sont-ils touchés (douleur, gonflement, raideur) ?", type: "boolean" },
+  {
+    code: "limitation_fonctionnelle",
+    label: "Avez-vous une limitation nouvelle ou importante dans vos activités quotidiennes ?",
+    type: "boolean",
+  },
   {
     code: "poussee_recente",
     label:
       "Depuis votre dernière évaluation, votre polyarthrite rhumatoïde s'est-elle aggravée au point de vous faire penser que votre traitement devrait être modifié ou renforcé ?",
     type: "boolean",
   },
-  { code: "comorbidites", label: "Comorbidités", type: "text" },
-  { code: "capacite_physique_actuelle", label: "Capacité physique actuelle", type: "text" },
-  ...HOT_JOINT_FIELDS,
+  { code: "comorbidites", label: "Avez-vous d'autres problèmes de santé à signaler ? (facultatif)", type: "text" },
+  {
+    code: "capacite_physique_actuelle",
+    label: "Comment décririez-vous votre capacité physique actuellement ? (facultatif)",
+    type: "text",
+  },
+  { code: "gonflement", label: "Avez-vous actuellement un gonflement au niveau d'une articulation ?", type: "boolean" },
+  { code: "chaleur_locale", label: "Une articulation est-elle inhabituellement chaude au toucher ?", type: "boolean" },
+  { code: "fievre", label: "Avez-vous de la fièvre en ce moment ?", type: "boolean" },
 ] as const;
 
 /** §20 — Spondyloarthrite axiale. Items structurés ajoutés le 20/08/2026
@@ -318,13 +376,21 @@ export const POLYARTHRITE_RHUMATOIDE_ITEMS = [
  * (infra/db/seed/0009_...sql), dont la condition exige explicitement qu'au
  * moins une des 3 localisations soit déclarée avant de tenir compte de la
  * sévérité (une atteinte légère/stable reste compatible avec un vert,
- * conformément à sa réponse). */
+ * conformément à sa réponse).
+ *
+ * Questions restantes reformulées le 14/09/2026 (Sprint 24, Q1 validée) —
+ * les items déjà rédigés en question complète (listés dans le commentaire
+ * ci-dessus) ne sont volontairement pas retouchés. */
 export const SPONDYLOARTHRITE_AXIALE_ITEMS = [
   { code: "douleur_rachidienne", label: "Douleur rachidienne", type: "scale_0_10" },
-  { code: "raideur", label: "Raideur nettement augmentée par rapport à l'habitude", type: "boolean" },
+  {
+    code: "raideur",
+    label: "Ressentez-vous une raideur nettement augmentée par rapport à d'habitude ?",
+    type: "boolean",
+  },
   {
     code: "mobilite_niveau",
-    label: "Mobilité pour réaliser les mouvements prévus",
+    label: "Comment évaluez-vous votre mobilité pour réaliser les mouvements prévus aujourd'hui ?",
     type: "select",
     options: [
       { value: 0, label: "Suffisante, avec contrôle, sans douleur importante ni aggravation récente" },
@@ -339,8 +405,12 @@ export const SPONDYLOARTHRITE_AXIALE_ITEMS = [
     type: "scale_0_10",
   },
   { code: "recuperation_satisfaisante", label: "Récupération satisfaisante depuis la séance précédente ?", type: "boolean" },
-  { code: "activite_physique", label: "Activité physique", type: "text" },
-  { code: "limitation_fonctionnelle", label: "Limitation fonctionnelle", type: "boolean" },
+  { code: "activite_physique", label: "Décrivez brièvement votre activité physique récente (facultatif)", type: "text" },
+  {
+    code: "limitation_fonctionnelle",
+    label: "Avez-vous une limitation nouvelle ou importante dans vos activités quotidiennes ?",
+    type: "boolean",
+  },
   {
     code: "symptomes_peripheriques",
     label: "Avez-vous des symptômes dans d'autres articulations que la colonne (mains, pieds, coudes, talons...) ?",
@@ -374,7 +444,7 @@ export const SPONDYLOARTHRITE_AXIALE_ITEMS = [
   },
   {
     code: "gonflement_chaleur_peripherique",
-    label: "Gonflement ou chaleur au niveau de cette zone",
+    label: "Avez-vous un gonflement ou une chaleur au niveau de cette zone ?",
     type: "boolean",
   },
   {
@@ -382,8 +452,8 @@ export const SPONDYLOARTHRITE_AXIALE_ITEMS = [
     label: "Cela vous gêne-t-il pour utiliser normalement cette zone (marcher, tenir un objet, etc.) ?",
     type: "boolean",
   },
-  { code: "comorbidites", label: "Comorbidités", type: "text" },
-  { code: "traumatisme_recent", label: "Traumatisme récent (même mineur)", type: "boolean" },
+  { code: "comorbidites", label: "Avez-vous d'autres problèmes de santé à signaler ? (facultatif)", type: "text" },
+  { code: "traumatisme_recent", label: "Avez-vous eu un traumatisme récent, même mineur ?", type: "boolean" },
   { code: "douleur_thoracique_ou_malaise", label: "Douleur thoracique ou malaise", type: "boolean" },
   { code: "dyspnee_inhabituelle", label: "Dyspnée inhabituelle importante", type: "boolean" },
   { code: "deficit_neurologique_nouveau", label: "Déficit neurologique nouveau ou progressif", type: "boolean" },
@@ -405,12 +475,16 @@ export const SPONDYLOARTHRITE_AXIALE_ITEMS = [
  * explicite de Dr Nikiema du même jour. Le test « lever de chaise sans les
  * bras » n'est PAS repris ici : Dr Nikiema précise explicitement qu'il ne
  * doit jamais servir seul à classer un patient à haut risque, et aucune
- * règle ne s'appuie dessus. */
+ * règle ne s'appuie dessus.
+ *
+ * Questions reformulées le 14/09/2026 (Sprint 24, Q1 validée) — les items du
+ * questionnaire de risque de chute (déjà des questions complètes) ne sont
+ * volontairement pas retouchés. */
 export const OSTEOPOROSE_ITEMS = [
   { code: "douleur", label: "Douleur", type: "scale_0_10" },
-  { code: "antecedent_fracture", label: "Antécédent de fracture", type: "boolean" },
-  { code: "fracture_vertebrale_connue", label: "Fracture vertébrale connue", type: "boolean" },
-  { code: "fracture_recente", label: "Fracture récente", type: "boolean" },
+  { code: "antecedent_fracture", label: "Avez-vous déjà eu une fracture dans le passé ?", type: "boolean" },
+  { code: "fracture_vertebrale_connue", label: "Avez-vous une fracture vertébrale connue ?", type: "boolean" },
+  { code: "fracture_recente", label: "Avez-vous eu une fracture récemment ?", type: "boolean" },
   {
     code: "chutes_12_mois",
     label: "Êtes-vous tombé(e) au cours des 12 derniers mois ?",
@@ -444,12 +518,24 @@ export const OSTEOPOROSE_ITEMS = [
     label: "Avez-vous l'impression de mettre plus de temps que d'habitude à vous lever et à marcher quelques pas ?",
     type: "boolean",
   },
-  { code: "mobilite", label: "Mobilité", type: "text" },
-  { code: "equilibre", label: "Équilibre", type: "text" },
-  { code: "niveau_force", label: "Niveau de force", type: "text" },
-  { code: "activite_physique", label: "Activité physique", type: "text" },
-  { code: "douleurs_rachidiennes", label: "Douleurs rachidiennes", type: "boolean" },
-  { code: "autres_facteurs_risque", label: "Autres facteurs de risque", type: "text" },
+  { code: "mobilite", label: "Comment décririez-vous votre mobilité actuellement ? (facultatif)", type: "text" },
+  { code: "equilibre", label: "Comment décririez-vous votre équilibre actuellement ? (facultatif)", type: "text" },
+  {
+    code: "niveau_force",
+    label: "Comment décririez-vous votre niveau de force actuellement ? (facultatif)",
+    type: "text",
+  },
+  { code: "activite_physique", label: "Décrivez brièvement votre activité physique récente (facultatif)", type: "text" },
+  {
+    code: "douleurs_rachidiennes",
+    label: "Avez-vous des douleurs au niveau du dos ou de la colonne vertébrale ?",
+    type: "boolean",
+  },
+  {
+    code: "autres_facteurs_risque",
+    label: "Y a-t-il un autre facteur de risque que vous souhaitez signaler ? (facultatif)",
+    type: "text",
+  },
 ] as const;
 
 export const SCREENING_ITEMS_BY_PATHOLOGY: Record<
