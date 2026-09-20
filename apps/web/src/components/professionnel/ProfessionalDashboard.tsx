@@ -1,7 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { PATHOLOGY_CODES, PATHOLOGY_LABELS_FR, PROFESSIONAL_LINK_STATUS_LABELS_FR, type PathologyCode } from "@apa/domain";
+import {
+  PATHOLOGY_CODES,
+  PATHOLOGY_LABELS_FR,
+  PROFESSIONAL_LINK_STATUS_LABELS_FR,
+  startOfDayIso,
+  endOfDayIso,
+  type PathologyCode,
+} from "@apa/domain";
 import { Button } from "@/components/ui/Button";
 
 interface LinkRow {
@@ -85,8 +92,8 @@ export function ProfessionalDashboard() {
     try {
       const params = new URLSearchParams({
         pathology,
-        from: new Date(from).toISOString(),
-        to: new Date(to).toISOString(),
+        from: startOfDayIso(from),
+        to: endOfDayIso(to),
       });
       const res = await fetch(`/api/professionnel/patients/${patientId}/report?${params.toString()}`);
       if (!res.ok) {

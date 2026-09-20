@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { PATHOLOGY_CODES, PATHOLOGY_LABELS_FR, type PathologyCode } from "@apa/domain";
+import { PATHOLOGY_CODES, PATHOLOGY_LABELS_FR, startOfDayIso, endOfDayIso, type PathologyCode } from "@apa/domain";
 import { Button } from "@/components/ui/Button";
 
 function defaultDateInput(daysAgo: number): string {
@@ -37,8 +37,8 @@ export function ReportFlow() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           pathology,
-          from: new Date(from).toISOString(),
-          to: new Date(to).toISOString(),
+          from: startOfDayIso(from),
+          to: endOfDayIso(to),
           userNote: userNote || undefined,
         }),
       });
