@@ -1,5 +1,15 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { sessionDurationMinutes, computeAdherencePercent, glycemiaGramsPerLToMmol, PATHOLOGY_LABELS_FR, type PathologyCode } from "@apa/domain";
+import {
+  sessionDurationMinutes,
+  computeAdherencePercent,
+  glycemiaGramsPerLToMmol,
+  PATHOLOGY_LABELS_FR,
+  PHYSICAL_ACTIVITY_TYPE_LABELS_FR,
+  formatActivityDurationLabel,
+  formatWalkDistanceLabel,
+  type PathologyCode,
+  type PhysicalActivityType,
+} from "@apa/domain";
 import type { PatientReportData } from "@apa/pdf-report";
 
 function formatMeasurement(row: {
@@ -61,33 +71,45 @@ export async function buildPatientReportData(
   to: Date,
   userNote?: string | null
 ): Promise<PatientReportData> {
-  const [{ data: appUser }, { data: sessions }, { data: measurements }, { data: assignment }] = await Promise.all([
-    supabase.from("users").select("first_name, last_name").eq("id", userId).maybeSingle(),
-    supabase
-      .from("sessions")
-      .select("status, started_at, completed_at, douleur_avant, douleur_apres, ressenti")
-      .eq("user_id", userId)
-      .eq("pathology", pathology)
-      .gte("started_at", from.toISOString())
-      .lte("started_at", to.toISOString()),
-    supabase
-      .from("measurements")
-      .select(
-        "measurement_type, recorded_at, weight_kg, waist_circumference_cm, systolic_mmhg, diastolic_mmhg, heart_rate_bpm, glycemia_value, glycemia_unit"
-      )
-      .eq("user_id", userId)
-      .gte("recorded_at", from.toISOString())
-      .lte("recorded_at", to.toISOString())
-      .order("recorded_at", { ascending: true }),
-    supabase
-      .from("user_program_assignments")
-      .select("program_id")
-      .eq("user_id", userId)
-      .eq("pathology", pathology)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle(),
-  ]);
+  const [{ data: appUser }, { data: sessions }, { data: measurements }, { data: physicalActivities }, { data: assignment }] =
+    await Promise.all([
+      supabase.from("users").select("first_name, last_name").eq("id", userId).maybeSingle(),
+      supabase
+        .from("sessions")
+        .select("status, started_at, completed_at, douleur_avant, douleur_apres, ressenti")
+        .eq("user_id", userId)
+        .eq("pathology", pathology)
+        .gte("started_at", from.toISOString())
+        .lte("started_at", to.toISOString()),
+      supabase
+        .from("measurements")
+        .select(
+          "measurement_type, recorded_at, weight_kg, waist_circumference_cm, systolic_mmhg, diastolic_mmhg, heart_rate_bpm, glycemia_value, glycemia_unit"
+        )
+        .eq("user_id", userId)
+        .gte("recorded_at", from.toISOString())
+        .lte("recorded_at", to.toISOString())
+        .order("recorded_at", { ascending: true }),
+      // Sprint 26 (21/09/2026) : activités physiques (chronomètre + suivi de
+      // marche/vélo GPS, Sprint 25) demandées par Dr Nikiema dans le rapport.
+      // Non scopé à `pathology` (contrairement à `sessions`) : une activité
+      // physique n'est pas rattachée à un module pathologique particulier.
+      supabase
+        .from("physical_activities")
+        .select("activity_type, duration_seconds, distance_meters, started_at")
+        .eq("user_id", userId)
+        .gte("started_at", from.toISOString())
+        .lte("started_at", to.toISOString())
+        .order("started_at", { ascending: true }),
+      supabase
+        .from("user_program_assignments")
+        .select("program_id")
+        .eq("user_id", userId)
+        .eq("pathology", pathology)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+    ]);
 
   const allSessions = sessions ?? [];
   const completedSessions = allSessions.filter((s) => s.status === "completed");
@@ -126,6 +148,12 @@ export async function buildPatientReportData(
         return formatted ? { ...formatted, date: m.recorded_at } : null;
       })
       .filter((m): m is { label: string; summary: string; date: string } => Boolean(m)),
+    physicalActivities: (physicalActivities ?? []).map((a) => ({
+      date: a.started_at,
+      activityTypeLabel: PHYSICAL_ACTIVITY_TYPE_LABELS_FR[a.activity_type as PhysicalActivityType] ?? a.activity_type,
+      durationLabel: formatActivityDurationLabel(a.duration_seconds),
+      distanceLabel: a.distance_meters ? formatWalkDistanceLabel(a.distance_meters) : null,
+    })),
     observations: allSessions
       .filter((s) => s.ressenti && s.ressenti.trim().length > 0)
       .map((s) => ({ date: s.started_at, text: s.ressenti as string })),

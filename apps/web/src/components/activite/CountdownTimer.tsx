@@ -12,6 +12,13 @@ function formatMmSs(totalSeconds: number): string {
   return `${mm}:${ss}`;
 }
 
+export interface CountdownSessionSummary {
+  durationSeconds: number;
+  distanceMeters: null;
+  startedAt: string;
+  completedAt: string;
+}
+
 /**
  * Chronomètre / compte à rebours pour une activité physique (Sprint 25,
  * 20/09/2026 — réponse « V1 simple » à la Question 1 de
@@ -26,18 +33,35 @@ function formatMmSs(totalSeconds: number): string {
  * réelles (Priorité 3, reportée le 12/09/2026) : même contrainte technique,
  * pas une nouvelle décision.
  *
+ * Sprint 26 (21/09/2026) : l'avertissement « gardez l'écran allumé » a été
+ * raccourci et mis en clignotement (`animate-pulse`, utilitaire Tailwind
+ * standard) à la demande de Dr Nikiema — la version précédente, plus
+ * complète mais longue, passait trop souvent inaperçue.
+ *
  * Le temps restant est recalculé à partir d'une échéance absolue
  * (`Date.now()` + durée), jamais par simple décompte de ticks : si le
  * navigateur ralentit ou suspend le minuteur en arrière-plan, l'affichage se
  * corrige tout seul dès que l'application redevient visible, plutôt que de
  * dériver silencieusement.
  *
- * `onComplete` est appelé une seule fois lorsque le compte à rebours atteint
- * zéro — le composant appelant (`ActiviteFlow`) déclenche la note vocale de
- * fin (fichier audio statique, aucune synthèse vocale, aucune
- * personnalisation — voir docs/DECISIONS.md, Sprint 25).
+ * `onComplete` déclenche la note vocale de fin (géré par `ActiviteFlow`).
+ * `onSessionComplete` (Sprint 26) transmet la durée réellement effectuée à
+ * enregistrer dans l'historique — appelé à la fin naturelle du compte à
+ * rebours (durée = celle programmée) OU via « Terminer maintenant » (durée =
+ * le temps réellement écoulé, jamais la durée programmée si elle n'a pas été
+ * atteinte — §57, §59 : ne jamais enregistrer une donnée non vérifiée).
+ * `onRunningChange` permet à `ActiviteFlow` de verrouiller le sélecteur de
+ * type d'activité pendant qu'une session est en cours.
  */
-export function CountdownTimer({ onComplete }: { onComplete: () => void }) {
+export function CountdownTimer({
+  onComplete,
+  onSessionComplete,
+  onRunningChange,
+}: {
+  onComplete: () => void;
+  onSessionComplete: (summary: CountdownSessionSummary) => void;
+  onRunningChange?: (inProgress: boolean) => void;
+}) {
   const [inputMinutes, setInputMinutes] = useState(10);
   const [inputSeconds, setInputSeconds] = useState(0);
   const [remainingSeconds, setRemainingSeconds] = useState<number | null>(null);
@@ -46,8 +70,12 @@ export function CountdownTimer({ onComplete }: { onComplete: () => void }) {
 
   const deadlineRef = useRef<number | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const sessionTotalSecondsRef = useRef<number>(0);
+  const sessionStartedAtRef = useRef<string | null>(null);
   const onCompleteRef = useRef(onComplete);
   onCompleteRef.current = onComplete;
+  const onSessionCompleteRef = useRef(onSessionComplete);
+  onSessionCompleteRef.current = onSessionComplete;
 
   function clearTick() {
     if (intervalRef.current !== null) {
@@ -65,14 +93,26 @@ export function CountdownTimer({ onComplete }: { onComplete: () => void }) {
       setFinished(true);
       clearTick();
       onCompleteRef.current();
+      onSessionCompleteRef.current({
+        durationSeconds: sessionTotalSecondsRef.current,
+        distanceMeters: null,
+        startedAt: sessionStartedAtRef.current ?? new Date().toISOString(),
+        completedAt: new Date().toISOString(),
+      });
       return;
     }
     setRemainingSeconds(secondsLeft);
   }
 
   function handleStart() {
+    const isFreshStart = remainingSeconds === null;
     const baseSeconds = remainingSeconds ?? inputMinutes * 60 + inputSeconds;
     if (baseSeconds <= 0) return;
+    if (isFreshStart) {
+      sessionTotalSecondsRef.current = baseSeconds;
+      sessionStartedAtRef.current = new Date().toISOString();
+      onRunningChange?.(true);
+    }
     setFinished(false);
     deadlineRef.current = Date.now() + baseSeconds * 1000;
     setRemainingSeconds(baseSeconds);
@@ -90,28 +130,46 @@ export function CountdownTimer({ onComplete }: { onComplete: () => void }) {
     clearTick();
   }
 
+  function handleFinishNow() {
+    if (remainingSeconds === null) return;
+    const elapsedSeconds = sessionTotalSecondsRef.current - remainingSeconds;
+    clearTick();
+    setRunning(false);
+    if (elapsedSeconds > 0) {
+      onSessionCompleteRef.current({
+        durationSeconds: elapsedSeconds,
+        distanceMeters: null,
+        startedAt: sessionStartedAtRef.current ?? new Date().toISOString(),
+        completedAt: new Date().toISOString(),
+      });
+    }
+    handleReset();
+  }
+
   function handleReset() {
     setRunning(false);
     setFinished(false);
     setRemainingSeconds(null);
     deadlineRef.current = null;
+    sessionStartedAtRef.current = null;
     clearTick();
+    onRunningChange?.(false);
   }
 
   useEffect(() => clearTick, []);
 
   const displaySeconds = remainingSeconds ?? inputMinutes * 60 + inputSeconds;
+  const sessionInProgress = remainingSeconds !== null && !finished;
 
   return (
     <div className="flex flex-col gap-3 rounded-xl border border-primary-200 p-4">
       <h2 className="font-semibold text-primary-900">Compte à rebours</h2>
 
-      <p className="text-xs text-primary-500">
-        Fonctionne tant que cette page reste ouverte et visible à l&apos;écran. Si vous verrouillez
-        votre téléphone ou changez d&apos;application, le décompte peut s&apos;arrêter ou se figer ;
-        la note vocale de fin sonnera à votre retour sur l&apos;application, pas forcément à
-        l&apos;heure exacte.
-      </p>
+      {running && (
+        <p className="animate-pulse text-center text-sm font-semibold text-amber-600">
+          ⚠️ Gardez l&apos;écran allumé et l&apos;application ouverte
+        </p>
+      )}
 
       {!running && remainingSeconds === null && (
         <div className="flex items-center gap-2">
@@ -163,6 +221,12 @@ export function CountdownTimer({ onComplete }: { onComplete: () => void }) {
           Réinitialiser
         </Button>
       </div>
+
+      {sessionInProgress && (
+        <Button type="button" variant="secondary" onClick={handleFinishNow}>
+          Terminer maintenant
+        </Button>
+      )}
     </div>
   );
 }

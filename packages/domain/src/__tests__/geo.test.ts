@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { cumulativeWalkDistanceMeters, GPS_NOISE_FLOOR_METERS, haversineDistanceMeters } from "../geo";
+import {
+  cumulativeWalkDistanceMeters,
+  formatWalkDistanceLabel,
+  GPS_MAX_ACCEPTABLE_ACCURACY_METERS,
+  GPS_NOISE_FLOOR_METERS,
+  haversineDistanceMeters,
+} from "../geo";
 
-describe("haversineDistanceMeters (suivi de marche GPS, Sprint 25)", () => {
+describe("haversineDistanceMeters (suivi de marche/vélo GPS, Sprint 25)", () => {
   it("retourne 0 pour deux points identiques", () => {
     const p = { latitudeDeg: 12.3714, longitudeDeg: -1.5197 }; // Ouagadougou
     expect(haversineDistanceMeters(p, p)).toBeCloseTo(0, 6);
@@ -51,5 +57,25 @@ describe("cumulativeWalkDistanceMeters", () => {
     const bBelowNoise = { latitudeDeg: 12.371401, longitudeDeg: -1.5197 }; // ~0.1 m
     expect(haversineDistanceMeters(a, bBelowNoise)).toBeLessThan(GPS_NOISE_FLOOR_METERS);
     expect(cumulativeWalkDistanceMeters([a, bBelowNoise, a, bBelowNoise])).toBe(0);
+  });
+});
+
+describe("formatWalkDistanceLabel", () => {
+  it("affiche en mètres arrondis sous 1 km", () => {
+    expect(formatWalkDistanceLabel(0)).toBe("0 m");
+    expect(formatWalkDistanceLabel(850.4)).toBe("850 m");
+    expect(formatWalkDistanceLabel(999.6)).toBe("1000 m");
+  });
+
+  it("affiche en kilomètres avec 2 décimales à partir de 1 km", () => {
+    expect(formatWalkDistanceLabel(1000)).toBe("1.00 km");
+    expect(formatWalkDistanceLabel(2345)).toBe("2.35 km");
+  });
+});
+
+describe("GPS_MAX_ACCEPTABLE_ACCURACY_METERS (Sprint 26, correction du bug de distance)", () => {
+  it("est une valeur strictement positive et raisonnable pour un GPS smartphone", () => {
+    expect(GPS_MAX_ACCEPTABLE_ACCURACY_METERS).toBeGreaterThan(0);
+    expect(GPS_MAX_ACCEPTABLE_ACCURACY_METERS).toBeLessThanOrEqual(100);
   });
 });

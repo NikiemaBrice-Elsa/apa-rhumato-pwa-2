@@ -66,6 +66,20 @@ export interface ReportObservation {
   text: string;
 }
 
+/**
+ * Une activité physique enregistrée via le chronomètre ou le suivi de
+ * marche/vélo GPS (Sprint 25) — ajoutée au rapport à la demande explicite de
+ * Dr Nikiema le 21/09/2026 (Sprint 26), en plus des dix sections imposées
+ * par le §71 d'origine. Libellés déjà formatés (type, durée, distance) : ce
+ * module ne fait aucun calcul, voir `@/lib/patientReport.ts`.
+ */
+export interface ReportPhysicalActivityPoint {
+  date: string;
+  activityTypeLabel: string;
+  durationLabel: string;
+  distanceLabel?: string | null;
+}
+
 export interface PatientReportData {
   identity: ReportIdentity;
   pathologyLabel: string;
@@ -74,6 +88,7 @@ export interface PatientReportData {
   adherence: ReportAdherence;
   pain: ReportPainPoint[];
   measurements: ReportMeasurementPoint[];
+  physicalActivities: ReportPhysicalActivityPoint[];
   observations: ReportObservation[];
   userNote?: string | null;
 }
@@ -178,6 +193,21 @@ export function buildPatientReportPdf(data: PatientReportData): Promise<Buffer> 
     } else {
       for (const m of data.measurements) {
         doc.text(`${formatDate(m.date)} — ${m.label} : ${m.summary}`);
+      }
+    }
+
+    // Activités physiques (chronomètre, marche/vélo GPS — Sprint 25/26,
+    // ajout demandé par Dr Nikiema le 21/09/2026, au-delà des dix sections
+    // imposées par le §71 d'origine).
+    sectionTitle(doc, "Activités physiques");
+    if (data.physicalActivities.length === 0) {
+      doc.text("Aucune activité physique enregistrée via le chronomètre ou le suivi de marche/vélo sur cette période.");
+    } else {
+      for (const activity of data.physicalActivities) {
+        doc.text(
+          `${formatDate(activity.date)} — ${activity.activityTypeLabel} : ${activity.durationLabel}` +
+            (activity.distanceLabel ? ` (${activity.distanceLabel})` : "")
+        );
       }
     }
 

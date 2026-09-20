@@ -1,13 +1,13 @@
 /**
- * Suivi de marche par GPS (Sprint 25, 20/09/2026) — remplace entièrement
- * l'idée de compteur de pas par capteur de mouvement, conformément à la
- * réponse du 19/09/2026 (« Proposition_Pas_Chrono_Mediatheque », Question 2,
- * réponse « c ») : « Remplacer entièrement l'idée de pas par une
- * distance/durée GPS, valable sur les deux systèmes ». Ce choix a été fait
- * après vérification (recherche technique, 09/2026) que l'API de capteur de
- * mouvement (accéléromètre / Generic Sensor API) est bloquée sans
- * contournement sur iOS Safari, alors que la géolocalisation fonctionne sur
- * Android comme sur iPhone.
+ * Suivi de marche/vélo par GPS (Sprint 25, 20/09/2026 ; précision corrigée
+ * Sprint 26, 21/09/2026) — remplace entièrement l'idée de compteur de pas
+ * par capteur de mouvement, conformément à la réponse du 19/09/2026
+ * (« Proposition_Pas_Chrono_Mediatheque », Question 2, réponse « c ») :
+ * « Remplacer entièrement l'idée de pas par une distance/durée GPS, valable
+ * sur les deux systèmes ». Ce choix a été fait après vérification (recherche
+ * technique, 09/2026) que l'API de capteur de mouvement (accéléromètre /
+ * Generic Sensor API) est bloquée sans contournement sur iOS Safari, alors
+ * que la géolocalisation fonctionne sur Android comme sur iPhone.
  *
  * Fonction PURE : aucun accès à `navigator.geolocation` ici (l'adaptateur
  * navigateur vit dans apps/web/src/components/activite/WalkTracker.tsx) —
@@ -53,10 +53,29 @@ export function haversineDistanceMeters(a: GeoPoint, b: GeoPoint): number {
 export const GPS_NOISE_FLOOR_METERS = 3;
 
 /**
+ * Précision GPS minimale acceptée pour qu'une position soit prise en compte
+ * dans le calcul de distance (mètres, correspond à `position.coords.accuracy`
+ * du navigateur). En dessous de cette qualité de signal (fréquent en
+ * intérieur, sous couvert dense, ou juste après activation du GPS — le
+ * « premier fix » est souvent très imprécis), une position peut être décalée
+ * de dizaines de mètres et fausser complètement la distance cumulée — c'est
+ * la cause la plus probable du bug remonté par Dr Nikiema le 21/09/2026
+ * (« la distance parcourue bugue et ne suit pas vraiment la marche »). Une
+ * position sous ce seuil est ignorée pour le calcul de distance mais ne
+ * bloque pas le suivi (retenue dès qu'une position suffisamment précise
+ * arrive). Valeur choisie par défaut par Claude, ajustable si l'expérience
+ * terrain montre qu'elle est trop stricte (distance sous-évaluée) ou trop
+ * laxiste (distance encore erratique).
+ */
+export const GPS_MAX_ACCEPTABLE_ACCURACY_METERS = 30;
+
+/**
  * Cumule la distance totale parcourue à partir d'une série ordonnée de
  * positions (la plus ancienne en premier). Ignore les segments sous le
  * seuil de bruit GPS pour éviter de gonfler artificiellement la distance
- * mesurée à l'arrêt (patient immobile, dérive GPS).
+ * mesurée à l'arrêt (patient immobile, dérive GPS). Le filtrage par
+ * précision (`GPS_MAX_ACCEPTABLE_ACCURACY_METERS`) a lieu en amont, côté
+ * adaptateur navigateur, avant même d'ajouter un point à la série passée ici.
  */
 export function cumulativeWalkDistanceMeters(points: GeoPoint[]): number {
   let total = 0;
@@ -67,4 +86,10 @@ export function cumulativeWalkDistanceMeters(points: GeoPoint[]): number {
     }
   }
   return total;
+}
+
+/** Formate une distance en mètres pour affichage patient (ex. « 850 m », « 2.30 km »). */
+export function formatWalkDistanceLabel(meters: number): string {
+  if (meters >= 1000) return `${(meters / 1000).toFixed(2)} km`;
+  return `${Math.round(meters)} m`;
 }

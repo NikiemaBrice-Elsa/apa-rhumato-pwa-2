@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { PROGRESSION_DECISIONS } from "./rules";
+import { PHYSICAL_ACTIVITY_TYPES } from "./physicalActivities";
 
 /**
  * Schémas de validation partagés (utilisés côté client ET côté serveur —
@@ -171,6 +172,25 @@ export const measurementSchema = z.discriminatedUnion("measurementType", [
 ]);
 
 export type MeasurementInput = z.infer<typeof measurementSchema>;
+
+/**
+ * Sprint 26 (21/09/2026) : enregistrement d'une activité physique
+ * (chronomètre ou suivi de marche/vélo GPS, Sprint 25) dans l'historique.
+ * `distanceMeters` reste facultatif — non pertinent pour aérobie/fitness/
+ * natation/autre (voir `isGpsTrackedActivityType`, packages/domain/src/
+ * physicalActivities.ts) ; le serveur ne l'exige jamais, il se contente de
+ * l'enregistrer si présent. Durée plafonnée à 6 heures (garde-fou anti
+ * saisie aberrante, pas une limite clinique).
+ */
+export const physicalActivitySchema = z.object({
+  activityType: z.enum(PHYSICAL_ACTIVITY_TYPES),
+  durationSeconds: z.number().int().positive().max(6 * 60 * 60),
+  distanceMeters: z.number().nonnegative().max(200_000).optional(),
+  startedAt: z.string(),
+  completedAt: z.string(),
+});
+
+export type PhysicalActivityInput = z.infer<typeof physicalActivitySchema>;
 
 /**
  * §33, réf. B10 (20/08/2026), Sprint 18 : saisie d'une évaluation de
