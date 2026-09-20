@@ -101,6 +101,12 @@ export default async function DashboardPage() {
         Démarrer une séance
       </Link>
       <Link
+        href="/activite"
+        className="rounded-xl border border-primary-300 px-5 py-3 text-center font-medium text-primary-700"
+      >
+        Activité physique (chronomètre, marche)
+      </Link>
+      <Link
         href="/suivi"
         className="rounded-xl border border-primary-300 px-5 py-3 text-center font-medium text-primary-700"
       >
