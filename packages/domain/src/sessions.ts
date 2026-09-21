@@ -1,6 +1,7 @@
 import type { PathologyCode } from "./pathologies";
 import type { Facts } from "./rules";
 import type { ExercisePhase } from "./exercises";
+import type { FunctionalCapacityTrend } from "./functionalCapacity";
 
 /**
  * §69 « Feedback après séance » : les quatre niveaux de difficulté ressentie
@@ -180,12 +181,45 @@ export type ProgressionSignal = (typeof PROGRESSION_SIGNALS)[number];
  * (ex. `.order("started_at", { ascending: false })`), séances `completed`
  * de préférence — au moins la dernière séance ; les deux dernières sont
  * nécessaires pour la détection d'un signal répété.
+ *
+ * Sprint 29 (21/09/2026, document « système de progression ») : `extra`
+ * ajoute deux faits OPTIONNELS, uniquement calculables par l'appelant (qui
+ * seul connaît le niveau de profil actuel du patient, pour choisir la bonne
+ * fenêtre de semaines — `PROGRESSION_WINDOW_WEEKS`, programs.ts — et sa
+ * capacité fonctionnelle la plus récente) :
+ *  - `adherence_percent_fenetre_progression` (`computeMultiWeekAdherencePercent`,
+ *    statistics.ts) — remplace `adherence_percent_semaine` comme critère
+ *    d'adhésion pour la décision `progress` spécifiquement (voir les règles
+ *    `PROGRESSION_PROGRESS_*` mises à jour, infra/db/seed/0016_...sql) ;
+ *    `adherence_percent_semaine` reste calculé tel quel ci-dessus, inchangé,
+ *    pour ne pas modifier silencieusement les règles `suspend`/`reduce`/
+ *    `maintain` déjà validées le 31/08/2026.
+ *  - `capacite_fonctionnelle_tendance` (`computeFunctionalCapacityTrend`,
+ *    functionalCapacity.ts) — nouveau critère explicite du document.
+ * Absents (comme avant) si `extra` n'est pas fourni ou si la valeur
+ * correspondante est `null`/`undefined` — jamais une clé ajoutée pour une
+ * donnée non disponible (§57, §59).
  */
-export function computeProgressionFacts(recentSessions: Session[], adherencePercentThisWeek: number | null | undefined): Facts {
+export function computeProgressionFacts(
+  recentSessions: Session[],
+  adherencePercentThisWeek: number | null | undefined,
+  extra?: {
+    adherencePercentWindow?: number | null;
+    functionalCapacityTrend?: FunctionalCapacityTrend | null;
+  }
+): Facts {
   const facts: Record<string, boolean | number | string> = {};
 
   if (typeof adherencePercentThisWeek === "number") {
     facts.adherence_percent_semaine = adherencePercentThisWeek;
+  }
+
+  if (typeof extra?.adherencePercentWindow === "number") {
+    facts.adherence_percent_fenetre_progression = extra.adherencePercentWindow;
+  }
+
+  if (extra?.functionalCapacityTrend) {
+    facts.capacite_fonctionnelle_tendance = extra.functionalCapacityTrend;
   }
 
   const [last, previous] = recentSessions;

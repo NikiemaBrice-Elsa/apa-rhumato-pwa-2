@@ -17,6 +17,7 @@ import { dependencyToken } from "@/lib/offlineQueue";
 import { enqueueOperation } from "@/lib/offlineStorage";
 import { ExerciseDetails } from "@/components/exercises/ExerciseDetails";
 import { AudioCoach } from "@/components/exercises/AudioCoach";
+import { CountdownTimer } from "@/components/activite/CountdownTimer";
 
 type Step = "pathology" | "verification" | "session" | "feedback" | "result";
 
@@ -75,6 +76,21 @@ interface SessionExerciseView {
  * (src/lib/offlineQueue.ts) au lieu d'afficher une erreur bloquante ; la
  * synchronisation a lieu automatiquement au retour de connexion (voir
  * OfflineBanner, monté dans le layout du groupe (dashboard)).
+ *
+ * §28, §33 — document « système de progression » (21/09/2026, section C) :
+ * « s'il clique sur démarrer la séance il doit avoir accès au compteur pour
+ * pouvoir quantifier sa séance ». Réutilise tel quel le chronomètre déjà
+ * construit pour l'activité physique libre (`CountdownTimer`, Sprint 25/26,
+ * apps/web/src/components/activite/CountdownTimer.tsx) — même outil, affiché
+ * dès l'entrée dans l'étape « session », purement comme repère visuel pour le
+ * patient pendant qu'il exécute ses exercices. Volontairement PAS relié à
+ * `POST /api/physical-activities` : la durée de LA SÉANCE D'EXERCICES est
+ * déjà quantifiée par le serveur via `sessions.started_at`/`completed_at`
+ * (voir `sessionDurationMinutes`, packages/domain/src/statistics.ts) —
+ * dupliquer cette mesure dans la table `physical_activities` (pensée pour les
+ * activités libres marche/vélo/aérobie, Sprint 25) mélangerait deux
+ * historiques différents sans qu'aucune réponse de Dr Nikiema ne demande
+ * cette fusion ; `onComplete`/`onSessionComplete` sont donc des no-op ici.
  */
 function allExercisesClassified(exercises: SessionExerciseView[]): boolean {
   return exercises.length > 0 && exercises.every((ex) => ex.phase != null);
@@ -323,6 +339,7 @@ export function SessionFlow({ initialPathology, initialPlannedSessionId, isPremi
     return (
       <div className="flex flex-col gap-4">
         <h2 className="font-semibold text-primary-900">Exercices de la séance</h2>
+        <CountdownTimer onComplete={() => {}} onSessionComplete={() => {}} />
         {sessionIsLocal ? (
           <p className="text-orange-700">
             Séance démarrée hors connexion : les exercices de votre programme ne peuvent pas être affichés

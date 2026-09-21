@@ -198,6 +198,47 @@ describe("computeProgressionFacts — progression_signal (Q1/Q2 du 30/08/2026)",
 });
 
 /**
+ * §29, §58, §70 — document « système de progression » (21/09/2026).
+ * `extra` ajoute deux faits optionnels au passage de niveau, sans jamais
+ * modifier les faits calculés jusqu'ici (rétrocompatible avec tous les tests
+ * ci-dessus, appelés sans 3e argument).
+ */
+describe("computeProgressionFacts — extra (document « système de progression », 21/09/2026)", () => {
+  it("sans extra, ne change rien au comportement historique", () => {
+    const last = makeSession({ startedAt: "2026-08-23T08:00:00Z", douleurApres: 2 });
+    expect(computeProgressionFacts([last], 85)).toEqual({
+      adherence_percent_semaine: 85,
+      douleur_apres_derniere_seance: 2,
+      progression_signal: "aucun",
+    });
+  });
+
+  it("ajoute adherence_percent_fenetre_progression quand fourni", () => {
+    const last = makeSession({ startedAt: "2026-08-23T08:00:00Z", douleurApres: 2 });
+    const facts = computeProgressionFacts([last], 85, { adherencePercentWindow: 92 });
+    expect(facts.adherence_percent_fenetre_progression).toBe(92);
+  });
+
+  it("n'ajoute pas adherence_percent_fenetre_progression si null (jamais deviné)", () => {
+    const last = makeSession({ startedAt: "2026-08-23T08:00:00Z", douleurApres: 2 });
+    const facts = computeProgressionFacts([last], 85, { adherencePercentWindow: null });
+    expect(facts.adherence_percent_fenetre_progression).toBeUndefined();
+  });
+
+  it("ajoute capacite_fonctionnelle_tendance quand fournie", () => {
+    const last = makeSession({ startedAt: "2026-08-23T08:00:00Z", douleurApres: 2 });
+    const facts = computeProgressionFacts([last], 85, { functionalCapacityTrend: "amelioree" });
+    expect(facts.capacite_fonctionnelle_tendance).toBe("amelioree");
+  });
+
+  it("n'ajoute pas capacite_fonctionnelle_tendance si null (jamais devinée)", () => {
+    const last = makeSession({ startedAt: "2026-08-23T08:00:00Z", douleurApres: 2 });
+    const facts = computeProgressionFacts([last], 85, { functionalCapacityTrend: null });
+    expect(facts.capacite_fonctionnelle_tendance).toBeUndefined();
+  });
+});
+
+/**
  * §29, §33 ; réf. B13 (31/08/2026) — niveau de complétude d'une séance à
  * partir de la fraction d'exercices prescrits cochés comme faits.
  */

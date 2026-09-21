@@ -2,8 +2,10 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { isSubscriptionCurrentlyActive, getSubscriptionDaysRemaining } from "@apa/domain";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { computePathologyProgressionResult } from "@/lib/progression";
 import { PlannedSessionCard } from "@/components/dashboard/PlannedSessionCard";
 import { SubscriptionStatusCard } from "@/components/dashboard/SubscriptionStatusCard";
+import { ProgressionGaugeCard } from "@/components/dashboard/ProgressionGaugeCard";
 import { LogoutButton } from "@/components/auth/LogoutButton";
 
 /**
@@ -54,6 +56,24 @@ export default async function DashboardPage() {
     ? getSubscriptionDaysRemaining(latestSubscription.expires_at, now)
     : null;
 
+  // §29, §58 — document « système de progression » (21/09/2026, section A) :
+  // jauge de progression vers le niveau suivant, une par pathologie suivie
+  // avec un programme validé assigné. Même logique que
+  // `GET /api/statistics/progression` (apps/web/src/app/api/statistics/
+  // progression/route.ts), dupliquée ici plutôt que fetchée en client pour
+  // rester un Server Component pur (pas d'aller-retour réseau depuis le
+  // navigateur pour l'écran d'accueil).
+  const { data: assignments } = await supabase
+    .from("user_program_assignments")
+    .select("pathology, created_at")
+    .eq("user_id", user!.id)
+    .order("created_at", { ascending: false });
+
+  const assignedPathologies = Array.from(new Set((assignments ?? []).map((row) => row.pathology)));
+  const progressionResults = (
+    await Promise.all(assignedPathologies.map((pathology) => computePathologyProgressionResult(supabase, user!.id, pathology)))
+  ).filter((r): r is NonNullable<typeof r> => r !== null);
+
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col gap-4 px-6 py-12">
       <h1 className="text-2xl font-semibold text-primary-900">
@@ -70,6 +90,7 @@ export default async function DashboardPage() {
         expiresAt={latestSubscription?.expires_at ?? null}
       />
       <PlannedSessionCard />
+      <ProgressionGaugeCard results={progressionResults} />
       <Link
         href="/profil"
         className="rounded-xl border border-primary-300 px-5 py-3 text-center font-medium text-primary-700"

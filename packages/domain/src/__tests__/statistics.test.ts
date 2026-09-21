@@ -5,6 +5,7 @@ import {
   computeAdherencePercent,
   computeGlobalAdherenceStats,
   computeAdherenceIndicators,
+  computeMultiWeekAdherencePercent,
 } from "../statistics";
 
 describe("getWeekBounds (§33 — semaine ISO, lundi -> dimanche)", () => {
@@ -130,5 +131,43 @@ describe("computeAdherenceIndicators (réf. B13, 31/08/2026)", () => {
         prescribedExercisesThisWeek: 10,
       }).doseCompletionPercent
     ).toBe(100);
+  });
+});
+
+/**
+ * §29, §58, §70 — document « système de progression » (21/09/2026, section
+ * B) : « ≥ 80% des séances prévues réalisées sur les 4/6 dernières
+ * semaines ». Même arithmétique que `computeAdherencePercent`, sur une
+ * fenêtre plus large.
+ */
+describe("computeMultiWeekAdherencePercent (document « système de progression », 21/09/2026)", () => {
+  it("retourne null sans fréquence cible", () => {
+    expect(computeMultiWeekAdherencePercent(6, null, 4)).toBeNull();
+    expect(computeMultiWeekAdherencePercent(6, undefined, 4)).toBeNull();
+    expect(computeMultiWeekAdherencePercent(6, 0, 4)).toBeNull();
+  });
+
+  it("retourne null pour une fenêtre invalide", () => {
+    expect(computeMultiWeekAdherencePercent(6, 2, 0)).toBeNull();
+    expect(computeMultiWeekAdherencePercent(6, 2, -1)).toBeNull();
+  });
+
+  it("calcule le pourcentage sur 4 semaines (débutant -> intermédiaire)", () => {
+    // Cible 2 séances/semaine x 4 semaines = 8 séances prévues ; 6 réalisées.
+    expect(computeMultiWeekAdherencePercent(6, 2, 4)).toBe(75);
+  });
+
+  it("atteint 80% quand le critère de passage de niveau est rempli", () => {
+    // Cible 3 séances/semaine x 4 semaines = 12 séances prévues ; 80% = 9,6 -> 10 réalisées.
+    expect(computeMultiWeekAdherencePercent(10, 3, 4)).toBeGreaterThanOrEqual(80);
+  });
+
+  it("plafonne à 100 même avec plus de séances que prévu", () => {
+    expect(computeMultiWeekAdherencePercent(50, 2, 4)).toBe(100);
+  });
+
+  it("calcule le pourcentage sur 6 semaines (intermédiaire -> supérieur)", () => {
+    // Cible 3 séances/semaine x 6 semaines = 18 séances prévues ; 15 réalisées.
+    expect(computeMultiWeekAdherencePercent(15, 3, 6)).toBe(83);
   });
 });

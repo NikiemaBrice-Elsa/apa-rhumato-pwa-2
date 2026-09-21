@@ -92,6 +92,30 @@ export function computeAdherenceIndicators(input: {
 }
 
 /**
+ * §29, §58, §70 — document « système de progression » (21/09/2026, section
+ * B) : critères de passage de niveau chiffrés en « ≥ 80 % des séances
+ * prévues réalisées sur les 4/6 dernières semaines », par opposition au taux
+ * hebdomadaire seul (`computeAdherencePercent`, déjà validé le 31/08/2026
+ * pour l'affichage informatif §29/§33). MÊME définition arithmétique
+ * exactement (séances réalisées / séances prévues, plafonnée à 100),
+ * simplement étendue sur `weeks` semaines au lieu d'une seule — pas une
+ * nouvelle formule inventée, seulement un dénominateur plus large
+ * (`targetFrequencyPerWeek * weeks`). `null` sans fréquence cible ou pour
+ * une fenêtre invalide (`weeks <= 0`) — jamais un pourcentage sans
+ * dénominateur réel (§57, §59, même garde-fou que `computeAdherencePercent`).
+ */
+export function computeMultiWeekAdherencePercent(
+  sessionsCompletedInWindow: number,
+  targetFrequencyPerWeek: number | null | undefined,
+  weeks: number
+): number | null {
+  if (!targetFrequencyPerWeek || targetFrequencyPerWeek <= 0) return null;
+  if (!Number.isFinite(weeks) || weeks <= 0) return null;
+  const percent = (sessionsCompletedInWindow / (targetFrequencyPerWeek * weeks)) * 100;
+  return Math.round(Math.min(100, Math.max(0, percent)));
+}
+
+/**
  * §64 (Sprint 13) : agrège les taux d'adhésion individuels (déjà calculés
  * par `computeAdherencePercent`, un par utilisateur) en une statistique
  * globale pour le tableau de bord administrateur. Les utilisateurs sans

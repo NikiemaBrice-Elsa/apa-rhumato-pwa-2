@@ -89,3 +89,68 @@ export function isFunctionalCapacityReassessmentDue(lastAssessedAt: string | nul
   const daysSince = (now.getTime() - new Date(lastAssessedAt).getTime()) / (24 * 60 * 60 * 1000);
   return daysSince >= FUNCTIONAL_CAPACITY_REASSESSMENT_DAYS;
 }
+
+/**
+ * §29, §58, §70 — document « système de progression » (21/09/2026, section
+ * B) : la capacité fonctionnelle doit être « stable ou améliorée » pour
+ * passer d'un niveau à l'autre. Dr Nikiema n'a chiffré AUCUN seuil de
+ * « stabilité » pour cette tendance (contrairement à la douleur/fatigue,
+ * chiffrées explicitement B2/Q1) — inventer un seuil clinique ici (ex. un
+ * MCID publié pour le PSFS) serait exactement le contenu médical non
+ * autorisé par §57/§59/§78. Deux comportements documentés, ni l'un ni
+ * l'autre un seuil clinique deviné :
+ *
+ *  - PROMIS (CAT) : la méthodologie PUBLIQUE de l'instrument fournit déjà,
+ *    pour chaque mesure, une erreur-type (`promisStandardError`, recueillie
+ *    depuis le Sprint 18 précisément pour cet usage). On applique ici la
+ *    convention psychométrique standard de lecture d'un T-score à erreur-type
+ *    connue : un changement n'est retenu que s'il dépasse 1,96 x l'erreur-type
+ *    combinée des deux mesures (intervalle de confiance à 95 %) — une
+ *    convention statistique publique, pas un jugement clinique.
+ *  - PSFS : aucune erreur-type n'est recueillie pour cet instrument.
+ *    Comparaison EXACTE de la moyenne (toute baisse = amélioration, toute
+ *    hausse = dégradation, égalité stricte = stable) plutôt qu'une marge de
+ *    tolérance chiffrée, qui serait, elle, un seuil clinique inventé. Si
+ *    Dr Nikiema souhaite une marge de tolérance (ex. un MCID publié de
+ *    l'instrument), une réponse explicite complétera cette fonction — voir
+ *    docs/DECISIONS.md.
+ *
+ * Retourne `null` si les deux évaluations ne portent pas sur le même
+ * instrument, ou si une donnée nécessaire manque — jamais une tendance
+ * devinée (§57, §59).
+ */
+export const FUNCTIONAL_CAPACITY_TRENDS = ["amelioree", "stable", "degradee"] as const;
+export type FunctionalCapacityTrend = (typeof FUNCTIONAL_CAPACITY_TRENDS)[number];
+
+export function computeFunctionalCapacityTrend(
+  previous: FunctionalCapacityAssessment | null | undefined,
+  current: FunctionalCapacityAssessment | null | undefined
+): FunctionalCapacityTrend | null {
+  if (!previous || !current || previous.instrument !== current.instrument) return null;
+
+  if (current.instrument === "psfs") {
+    const previousScore = computePsfsAverageScore(previous.activities ?? []);
+    const currentScore = computePsfsAverageScore(current.activities ?? []);
+    if (previousScore === null || currentScore === null) return null;
+    if (currentScore < previousScore) return "amelioree";
+    if (currentScore > previousScore) return "degradee";
+    return "stable";
+  }
+
+  // promis_pf_cat
+  if (
+    typeof previous.promisTScore !== "number" ||
+    typeof current.promisTScore !== "number" ||
+    typeof previous.promisStandardError !== "number" ||
+    typeof current.promisStandardError !== "number"
+  ) {
+    return null;
+  }
+
+  const difference = current.promisTScore - previous.promisTScore;
+  const combinedStandardError = Math.sqrt(previous.promisStandardError ** 2 + current.promisStandardError ** 2);
+  const reliableChangeThreshold = 1.96 * combinedStandardError;
+
+  if (Math.abs(difference) <= reliableChangeThreshold) return "stable";
+  return difference > 0 ? "amelioree" : "degradee";
+}

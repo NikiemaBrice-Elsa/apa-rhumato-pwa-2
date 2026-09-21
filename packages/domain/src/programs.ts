@@ -37,6 +37,50 @@ export function nextProfileLevel(level: ProfileLevel): ProfileLevel | null {
   return index >= 0 && index < PROFILE_LEVELS.length - 1 ? PROFILE_LEVELS[index + 1] : null;
 }
 
+/**
+ * §29, §58 — cadre indicatif fréquence/durée par niveau, réponse explicite
+ * de Dr Nikiema (document « système de progression », 21/09/2026, section A) :
+ * « Débutant : 2-3 séances/semaine, 20-30 min/séance ; Intermédiaire : 3-4
+ * séances/semaine, 30-45 min/séance ; Supérieur : 4-5 séances/semaine, 45-60
+ * min/séance », avec « une progression progressive de la durée et surtout de
+ * l'intensité, SANS OBLIGATION d'atteindre systématiquement la durée
+ * maximale ». Reprise littérale de ses bornes min/max — jamais une valeur
+ * unique imposée, jamais une moyenne inventée à sa place.
+ *
+ * Purement indicatif/affichage : le programme RÉELLEMENT assigné à un
+ * patient (`programs.frequency_per_week`, §67-68) reste l'unique source de
+ * vérité pour SA fréquence cible (utilisée par `computeAdherencePercent`/
+ * `computeMultiWeekAdherencePercent`) — ce tableau ne la remplace jamais.
+ */
+export interface ProfileLevelGuidance {
+  sessionsPerWeekMin: number;
+  sessionsPerWeekMax: number;
+  sessionDurationMinutesMin: number;
+  sessionDurationMinutesMax: number;
+}
+
+export const PROFILE_LEVEL_GUIDANCE: Record<ProfileLevel, ProfileLevelGuidance> = {
+  debutant: { sessionsPerWeekMin: 2, sessionsPerWeekMax: 3, sessionDurationMinutesMin: 20, sessionDurationMinutesMax: 30 },
+  intermediaire: { sessionsPerWeekMin: 3, sessionsPerWeekMax: 4, sessionDurationMinutesMin: 30, sessionDurationMinutesMax: 45 },
+  avance: { sessionsPerWeekMin: 4, sessionsPerWeekMax: 5, sessionDurationMinutesMin: 45, sessionDurationMinutesMax: 60 },
+};
+
+/**
+ * §29, §58, §70 — fenêtres d'observation pour le passage d'un niveau à
+ * l'autre, chiffrées explicitement par Dr Nikiema (document « système de
+ * progression », 21/09/2026, section B) :
+ *   - Débutant -> Intermédiaire : « sur les 4 dernières semaines »
+ *   - Intermédiaire -> Supérieur : « sur les 6 dernières semaines »
+ * Indexé par le niveau ACTUEL du patient (celui dont il pourrait sortir),
+ * pas le niveau visé. `avance` n'a pas de niveau supérieur (voir
+ * `nextProfileLevel`) — volontairement absent de cet objet, jamais une
+ * fenêtre inventée pour un passage qui n'existe pas.
+ */
+export const PROGRESSION_WINDOW_WEEKS: Partial<Record<ProfileLevel, number>> = {
+  debutant: 4,
+  intermediaire: 6,
+};
+
 /** Reflète la table `programs` (§67) — champs strictement conformes à la
  * structure imposée par le cahier des charges. Aucun programme réel n'est
  * fourni par le code : cette interface décrit la FORME des données. */
