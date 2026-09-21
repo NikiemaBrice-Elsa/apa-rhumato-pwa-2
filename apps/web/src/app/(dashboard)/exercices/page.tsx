@@ -1,19 +1,15 @@
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { EXERCISE_CATEGORY_LABELS_FR, EXERCISE_DIFFICULTY_LABELS_FR, type ExerciseCategory, type ExerciseDifficultyLevel } from "@apa/domain";
-import { ExerciseDetails } from "@/components/exercises/ExerciseDetails";
-import { AudioCoach } from "@/components/exercises/AudioCoach";
+import { ExerciseLibraryBrowser, type LibraryExercise } from "@/components/exercises/ExerciseLibraryBrowser";
 import { getPremiumStatus } from "@/lib/premiumAccess";
+import type { ExerciseCategory, ExerciseDifficultyLevel, PathologyCode } from "@apa/domain";
 
 interface ExerciseRow {
   exercise_id: string;
   name: string;
   short_description: string;
   category: ExerciseCategory;
-  difficulty: string | null;
-  /** §58, Sprint 24 : format affiché au patient (Débutant/Intermédiaire/Avancé). */
   difficulty_level: ExerciseDifficultyLevel | null;
-  /** §58, Sprint 24 : fourchette cible affichée au patient (Borg CR10). */
   intensity_borg_min: number | null;
   intensity_borg_max: number | null;
   starting_position: string | null;
@@ -28,6 +24,7 @@ interface ExerciseRow {
   stop_criteria: string | null;
   audio_preparation_url: string | null;
   audio_exercise_url: string | null;
+  exercise_pathologies: Array<{ pathology_code: PathologyCode }>;
 }
 
 /**
@@ -36,6 +33,15 @@ interface ExerciseRow {
  * infra/db/migrations/0005_exercise_library.sql) ; reste vide tant que le
  * concepteur médical n'a validé aucun contenu (voir
  * infra/db/seed/tools/gabarit_exercices_apa_rhumato.xlsx).
+ *
+ * Sprint 28 (20/09/2026) — nouvel affichage demandé par Dr Nikiema :
+ * pathologie → types d'exercices recommandés → exercices → détail (au lieu
+ * d'une simple liste plate). Cette page reste un Server Component qui se
+ * contente de charger les données (y compris les pathologies liées via
+ * `exercise_pathologies`, embarquées par PostgREST, même syntaxe que
+ * apps/web/src/app/api/admin/exercises/route.ts) ; toute la navigation par
+ * étapes est déléguée à `ExerciseLibraryBrowser` (Client Component, pour
+ * l'état de l'étape courante).
  */
 export default async function ExercisesPage() {
   const supabase = createSupabaseServerClient();
@@ -49,68 +55,42 @@ export default async function ExercisesPage() {
 
   const { isPremium } = await getPremiumStatus(supabase, user.id);
 
-  // 10/09/2026 : précautions, contre-indications et critères d'arrêt sont
-  // déjà validés pour les exercices en ligne mais n'étaient jamais
-  // transmis ici — voir ExerciseDetails.tsx pour le détail de la découverte
-  // et la règle d'affichage (rien n'est montré si le champ est vide).
-  // audio_preparation_url/audio_exercise_url (coach vocal, Sprint 20,
-  // priorisé le 10/09/2026) suivent la même règle — voir AudioCoach.tsx.
   const { data } = await supabase
     .from("exercise_library")
     .select(
-      "exercise_id, name, short_description, category, difficulty, difficulty_level, intensity_borg_min, intensity_borg_max, starting_position, execution_steps, breathing_instruction, duration_seconds, repetitions, sets, rest_time_seconds, precautions, contraindications, stop_criteria, audio_preparation_url, audio_exercise_url"
+      "exercise_id, name, short_description, category, difficulty_level, intensity_borg_min, intensity_borg_max, starting_position, execution_steps, breathing_instruction, duration_seconds, repetitions, sets, rest_time_seconds, precautions, contraindications, stop_criteria, audio_preparation_url, audio_exercise_url, exercise_pathologies(pathology_code)"
     )
     .order("name");
 
-  const exercises = (data ?? []) as ExerciseRow[];
+  const rows = (data ?? []) as ExerciseRow[];
+
+  const exercises: LibraryExercise[] = rows.map((row) => ({
+    exerciseId: row.exercise_id,
+    name: row.name,
+    shortDescription: row.short_description,
+    category: row.category,
+    pathologies: (row.exercise_pathologies ?? []).map((p) => p.pathology_code),
+    difficultyLevel: row.difficulty_level,
+    intensityBorgMin: row.intensity_borg_min,
+    intensityBorgMax: row.intensity_borg_max,
+    startingPosition: row.starting_position,
+    executionSteps: row.execution_steps,
+    breathingInstruction: row.breathing_instruction,
+    durationSeconds: row.duration_seconds,
+    repetitions: row.repetitions,
+    sets: row.sets,
+    restTimeSeconds: row.rest_time_seconds,
+    precautions: row.precautions,
+    contraindications: row.contraindications,
+    stopCriteria: row.stop_criteria,
+    audioPreparationUrl: row.audio_preparation_url,
+    audioExerciseUrl: row.audio_exercise_url,
+  }));
 
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col gap-6 px-6 py-12">
-      <h1 className="text-2xl font-semibold text-primary-900">Bibliothèque d'exercices</h1>
-
-      {exercises.length === 0 ? (
-        <p className="text-primary-700">
-          Aucun exercice n'est encore disponible : le contenu doit d'abord être validé par le
-          concepteur médical.
-        </p>
-      ) : (
-        <ul className="flex flex-col gap-3">
-          {exercises.map((exercise) => (
-            <li key={exercise.exercise_id} className="rounded-xl border border-primary-300 bg-white p-4">
-              <p className="font-medium text-primary-900">{exercise.name}</p>
-              <p className="text-sm text-primary-700">{exercise.short_description}</p>
-              <p className="mt-1 text-xs text-primary-500">
-                {EXERCISE_CATEGORY_LABELS_FR[exercise.category]}
-                {exercise.difficulty_level ? ` · ${EXERCISE_DIFFICULTY_LABELS_FR[exercise.difficulty_level]}` : ""}
-                {exercise.intensity_borg_min != null && exercise.intensity_borg_max != null
-                  ? ` · Intensité cible : ${exercise.intensity_borg_min}-${exercise.intensity_borg_max}/10`
-                  : ""}
-              </p>
-              <ExerciseDetails
-                ex={{
-                  startingPosition: exercise.starting_position,
-                  executionSteps: exercise.execution_steps,
-                  breathingInstruction: exercise.breathing_instruction,
-                  durationSeconds: exercise.duration_seconds,
-                  repetitions: exercise.repetitions,
-                  sets: exercise.sets,
-                  restTimeSeconds: exercise.rest_time_seconds,
-                  precautions: exercise.precautions,
-                  contraindications: exercise.contraindications,
-                  stopCriteria: exercise.stop_criteria,
-                }}
-              />
-              <AudioCoach
-                ex={{
-                  audioPreparationUrl: exercise.audio_preparation_url,
-                  audioExerciseUrl: exercise.audio_exercise_url,
-                }}
-                isPremium={isPremium}
-              />
-            </li>
-          ))}
-        </ul>
-      )}
+      <h1 className="text-2xl font-semibold text-primary-900">Bibliothèque d&apos;exercices</h1>
+      <ExerciseLibraryBrowser exercises={exercises} isPremium={isPremium} />
     </main>
   );
 }

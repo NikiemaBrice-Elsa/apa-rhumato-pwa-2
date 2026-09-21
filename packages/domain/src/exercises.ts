@@ -1,4 +1,4 @@
-import type { PathologyCode } from "./pathologies";
+import { PATHOLOGY_CODES, type PathologyCode } from "./pathologies";
 import type { ObjectiveCode } from "./objectives";
 
 /** §25 : grandes catégories d'exercices. */
@@ -131,4 +131,35 @@ export interface Exercise {
   scientificReferenceIds: string[];
   lastReviewed?: string | null;
   medicalValidationStatus: MedicalValidationStatus;
+}
+
+/**
+ * Sprint 28 (20/09/2026) — nouvel affichage de la bibliothèque d'exercices
+ * demandé par Dr Nikiema : pathologie → types d'exercices recommandés →
+ * exercices → détail. Ces deux fonctions pures calculent, à partir de la
+ * liste des exercices déjà chargée (validés uniquement, cf. RLS de
+ * `exercise_library`), quelles pathologies et quels types (`category`) ont
+ * réellement au moins un exercice — pour ne jamais proposer un choix qui
+ * mènerait à un écran vide (§57, §59 : ne jamais laisser deviner un contenu
+ * qui n'existe pas). L'ordre rendu est toujours celui de référence
+ * (`PATHOLOGY_CODES`/`EXERCISE_CATEGORIES`), pas l'ordre d'apparition dans
+ * la liste d'exercices.
+ */
+export function pathologiesWithExercises(exercises: { pathologies: PathologyCode[] }[]): PathologyCode[] {
+  const present = new Set<PathologyCode>();
+  for (const exercise of exercises) {
+    for (const pathology of exercise.pathologies) present.add(pathology);
+  }
+  return PATHOLOGY_CODES.filter((code) => present.has(code));
+}
+
+export function categoriesForPathology(
+  exercises: { pathologies: PathologyCode[]; category: ExerciseCategory }[],
+  pathology: PathologyCode
+): ExerciseCategory[] {
+  const present = new Set<ExerciseCategory>();
+  for (const exercise of exercises) {
+    if (exercise.pathologies.includes(pathology)) present.add(exercise.category);
+  }
+  return EXERCISE_CATEGORIES.filter((category) => present.has(category));
 }

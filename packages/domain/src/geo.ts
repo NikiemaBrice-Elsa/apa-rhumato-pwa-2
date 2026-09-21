@@ -71,19 +71,47 @@ export const GPS_MAX_ACCEPTABLE_ACCURACY_METERS = 30;
 
 /**
  * Cumule la distance totale parcourue à partir d'une série ordonnée de
- * positions (la plus ancienne en premier). Ignore les segments sous le
- * seuil de bruit GPS pour éviter de gonfler artificiellement la distance
- * mesurée à l'arrêt (patient immobile, dérive GPS). Le filtrage par
- * précision (`GPS_MAX_ACCEPTABLE_ACCURACY_METERS`) a lieu en amont, côté
- * adaptateur navigateur, avant même d'ajouter un point à la série passée ici.
+ * positions (la plus ancienne en premier). Le filtrage par précision
+ * (`GPS_MAX_ACCEPTABLE_ACCURACY_METERS`) a lieu en amont, côté adaptateur
+ * navigateur, avant même d'ajouter un point à la série passée ici.
+ *
+ * Sprint 27 (20/09/2026) — correction d'un second bug de distance remonté
+ * par Dr Nikiema, après la correction de précision du Sprint 26 : sur un
+ * test de marche réelle de 2 minutes, la distance affichait 50 m puis ne
+ * progressait plus du tout malgré la marche continue. Cause : la version
+ * précédente comparait chaque position UNIQUEMENT à la précédente
+ * (`points[i-1]` à `points[i]`) et rejetait tout le segment dès qu'il
+ * passait sous `GPS_NOISE_FLOOR_METERS` (3 m) — y compris pour toujours,
+ * sans jamais le récupérer. Or à une allure de marche normale (~1-1,5 m/s)
+ * et une fréquence de position typique du navigateur (environ 1 point par
+ * seconde), l'écart entre deux positions CONSÉCUTIVES est très souvent
+ * inférieur à 3 m : la quasi-totalité d'une marche lente ou régulière se
+ * faisait donc rejeter en continu, alors qu'elle représentait un vrai
+ * déplacement cumulé.
+ *
+ * Correctif : un point d'ancrage (« anchor ») ne avance que lorsqu'un
+ * segment dépasse le seuil de bruit. Sous le seuil, l'ancrage reste en
+ * place et le prochain point est comparé à ce même ancrage — un petit
+ * déplacement réel s'accumule donc sur plusieurs positions successives
+ * jusqu'à dépasser le seuil, au lieu d'être perdu à chaque fois. Une
+ * position réellement immobile (bruit GPS autour d'un point fixe, va-et-
+ * vient aléatoire) continue d'être ignorée, car elle ne s'éloigne pas
+ * durablement de l'ancrage.
  */
 export function cumulativeWalkDistanceMeters(points: GeoPoint[]): number {
+  if (points.length === 0) return 0;
+
   let total = 0;
+  let anchor = points[0];
   for (let i = 1; i < points.length; i++) {
-    const segment = haversineDistanceMeters(points[i - 1], points[i]);
+    const segment = haversineDistanceMeters(anchor, points[i]);
     if (segment >= GPS_NOISE_FLOOR_METERS) {
       total += segment;
+      anchor = points[i];
     }
+    // Sinon : on ne fait PAS avancer l'ancrage, pour que ce petit
+    // déplacement s'additionne avec les points suivants (voir commentaire
+    // ci-dessus) au lieu d'être perdu.
   }
   return total;
 }

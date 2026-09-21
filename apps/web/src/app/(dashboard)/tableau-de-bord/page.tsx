@@ -158,6 +158,12 @@ export default async function DashboardPage() {
           Espace administrateur (§42)
         </Link>
       )}
+      <Link
+        href="/a-propos"
+        className="rounded-xl border border-primary-300 px-5 py-3 text-center font-medium text-primary-700"
+      >
+        À propos de l&apos;application
+      </Link>
       <p className="text-sm text-primary-500">
         L'attribution automatique de programme est en attente de validation médicale (niveaux,
         seuils, contenu) — voir « Mon programme » pour le détail par pathologie. Une séance peut

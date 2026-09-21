@@ -58,6 +58,43 @@ describe("cumulativeWalkDistanceMeters", () => {
     expect(haversineDistanceMeters(a, bBelowNoise)).toBeLessThan(GPS_NOISE_FLOOR_METERS);
     expect(cumulativeWalkDistanceMeters([a, bBelowNoise, a, bBelowNoise])).toBe(0);
   });
+
+  it("Sprint 27 : cumule une marche lente et régulière au lieu de rester bloquée (bug remonté par Dr Nikiema le 20/09/2026)", () => {
+    // ~2 m entre chaque position successive (marche lente, positions
+    // fréquentes) : chaque segment CONSÉCUTIF est sous GPS_NOISE_FLOOR_METERS
+    // (3 m), mais le déplacement réel cumulé (8 m) doit être compté grâce à
+    // l'ancrage qui n'avance qu'une fois le seuil dépassé.
+    const metersPerDegreeLat = 111_195;
+    const stepDeg = 2 / metersPerDegreeLat;
+    const start = { latitudeDeg: 12.3714, longitudeDeg: -1.5197 };
+    const points = [0, 1, 2, 3, 4].map((n) => ({
+      latitudeDeg: start.latitudeDeg + n * stepDeg,
+      longitudeDeg: start.longitudeDeg,
+    }));
+
+    // Confirme que chaque segment consécutif est bien sous le seuil de bruit
+    // (sans quoi ce test ne démontrerait rien).
+    for (let i = 1; i < points.length; i++) {
+      expect(haversineDistanceMeters(points[i - 1], points[i])).toBeLessThan(GPS_NOISE_FLOOR_METERS);
+    }
+
+    const total = cumulativeWalkDistanceMeters(points);
+    expect(total).toBeGreaterThan(7);
+    expect(total).toBeLessThan(9);
+  });
+
+  it("continue de progresser au-delà du premier segment compté (ne se bloque pas une fois l'ancrage avancé)", () => {
+    const metersPerDegreeLat = 111_195;
+    const stepDeg = 5 / metersPerDegreeLat; // 5 m par pas, au-dessus du seuil de bruit
+    const start = { latitudeDeg: 12.3714, longitudeDeg: -1.5197 };
+    const points = [0, 1, 2, 3, 4, 5, 6].map((n) => ({
+      latitudeDeg: start.latitudeDeg + n * stepDeg,
+      longitudeDeg: start.longitudeDeg,
+    }));
+    const total = cumulativeWalkDistanceMeters(points);
+    expect(total).toBeGreaterThan(29);
+    expect(total).toBeLessThan(31);
+  });
 });
 
 describe("formatWalkDistanceLabel", () => {

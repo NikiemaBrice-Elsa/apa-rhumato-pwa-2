@@ -43,6 +43,14 @@ interface Tab {
  * depuis un Server Component, voir exercices/page.tsx, comme n'importe quel
  * Client Component).
  *
+ * Sprint 28 (20/09/2026) : reste utilisé tel quel par `SessionFlow.tsx`
+ * (case à cocher d'une séance en cours). La bibliothèque d'exercices
+ * (`exercices/page.tsx`) utilise désormais son propre composant dédié,
+ * `ExerciseLibraryDetail.tsx` (description brève + lecture à voix haute,
+ * puis seulement 3 onglets de sécurité), pour répondre à une demande
+ * d'affichage spécifique à cet écran sans changer le comportement, déjà
+ * en place et non remis en cause, de l'écran de séance.
+ *
  * §57, §59, §78 : n'affiche que ce qui est réellement renseigné — jamais un
  * intitulé de champ vide ni une valeur déduite. Un exercice pour lequel
  * rien de tout cela n'a encore été rempli ne montre donc rien de plus que
