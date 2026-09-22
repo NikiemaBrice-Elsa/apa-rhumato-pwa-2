@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getConflictCount, getPendingCount, onQueueChanged, syncNow } from "@/lib/offlineStorage";
+import { clearConflicts, getConflictCount, getPendingCount, onQueueChanged, syncNow } from "@/lib/offlineStorage";
 
 /**
  * Indicateur hors connexion + synchronisation (§54, §10) — Sprint 12,
@@ -29,6 +29,17 @@ import { getConflictCount, getPendingCount, onQueueChanged, syncNow } from "@/li
  * resynchronisations à valider, mais des données qui n'ont pas pu être
  * enregistrées et que le patient doit ressaisir depuis l'écran d'origine —
  * aucun bouton ne peut « résoudre » un conflit automatiquement.
+ *
+ * Correction du 22/09/2026 : `syncQueue` (offlineQueue.ts) ne retente
+ * jamais une opération en conflit, donc rien ne l'effaçait plus jamais de
+ * la file — le bandeau rouge restait affiché en permanence, même après le
+ * retour de connexion et une nouvelle saisie réussie de la même
+ * information. Le bouton « J'ai ressaisi cette information » (visible
+ * uniquement en présence d'un conflit) appelle `clearConflicts()` : il
+ * n'envoie rien au serveur, il efface seulement l'alerte une fois que le
+ * patient a bien ressaisi l'information depuis l'écran concerné — ce
+ * n'est donc pas le bouton de synchronisation à valider qui a été retiré
+ * plus haut.
  */
 export function OfflineBanner() {
   const [isOnline, setIsOnline] = useState(true);
@@ -101,7 +112,19 @@ export function OfflineBanner() {
       {!isOnline && <p>Vous êtes hors connexion. Vos actions sont enregistrées et seront synchronisées automatiquement dès que la connexion reviendra.</p>}
       {pending > 0 && <p>{pending} action(s) en attente de synchronisation automatique.</p>}
       {conflicts > 0 && (
-        <p>{conflicts} action(s) n'ont pas pu être synchronisées (conflit). Réessayez l'action concernée (séance, mesure ou profil) depuis l'écran où vous l'avez saisie.</p>
+        <div className="flex flex-col gap-2">
+          <p>{conflicts} action(s) n'ont pas pu être synchronisées (conflit). Réessayez l'action concernée (séance, mesure ou profil) depuis l'écran où vous l'avez saisie.</p>
+          <button
+            type="button"
+            onClick={() => {
+              clearConflicts();
+              refreshCounts();
+            }}
+            className="self-start rounded-lg border border-red-300 bg-white px-3 py-1 text-xs font-medium text-red-700 hover:bg-red-100"
+          >
+            J&apos;ai ressaisi cette information
+          </button>
+        </div>
       )}
     </div>
   );

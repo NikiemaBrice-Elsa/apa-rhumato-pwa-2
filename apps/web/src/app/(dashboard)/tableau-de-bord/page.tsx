@@ -121,6 +121,17 @@ export default async function DashboardPage() {
       >
         Démarrer une séance
       </Link>
+      {/* Onglet dédié (22/09/2026, message direct de Dr Nikiema : « pas
+          suffisamment mise en évidence ») — auparavant seulement un lien
+          texte discret en bas de la page /seance, désormais son propre
+          bouton au même niveau que « Démarrer une séance » sur le tableau
+          de bord. */}
+      <Link
+        href="/seance/declarer"
+        className="rounded-xl border border-primary-300 px-5 py-3 text-center font-medium text-primary-700"
+      >
+        Déclarer une séance faite hors de l&apos;application
+      </Link>
       <Link
         href="/activite"
         className="rounded-xl border border-primary-300 px-5 py-3 text-center font-medium text-primary-700"

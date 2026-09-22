@@ -85,10 +85,20 @@ export async function POST(request: Request) {
 
   const serviceRole = createSupabaseServiceRoleClient();
 
+  // Recherche insensible à la casse (22/09/2026) : `professionalEmail` est
+  // désormais normalisé en minuscules côté schéma (validation.ts), mais des
+  // comptes professionnels créés directement par l'administrateur (hors
+  // formulaire d'inscription, avant ce correctif) peuvent avoir un email
+  // stocké avec une casse différente — une comparaison exacte (`.eq`) les
+  // rendait introuvables pour un patient tapant la même adresse en
+  // minuscules, alors même que le compte existe bien. `ilike` sans jocker
+  // fait une comparaison exacte insensible à la casse ; `%`/`_` sont
+  // échappés pour ne jamais être interprétés comme des jokers SQL.
+  const escapedEmail = parsed.data.professionalEmail.replace(/[%_]/g, (char) => `\\${char}`);
   const { data: professional, error: lookupError } = await serviceRole
     .from("users")
     .select("id, role, status")
-    .eq("email", parsed.data.professionalEmail)
+    .ilike("email", escapedEmail)
     .maybeSingle();
 
   if (lookupError) {

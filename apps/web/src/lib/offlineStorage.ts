@@ -58,6 +58,22 @@ export function getConflictCount(): number {
   return getQueue().filter((op) => op.status === "conflict").length;
 }
 
+/**
+ * Efface les opérations en `conflict` de la file (§79, 22/09/2026) : une
+ * opération en conflit n'est JAMAIS retentée automatiquement par
+ * `syncQueue` (offlineQueue.ts, §54) — sans ce geste explicite, le bandeau
+ * rouge restait affiché indéfiniment, y compris après le retour de
+ * connexion et une nouvelle saisie réussie de la même information depuis
+ * l'écran d'origine, car l'ancienne entrée en conflit n'était jamais
+ * retirée de `localStorage`. Ce n'est pas une resynchronisation à valider
+ * (rien n'est renvoyé au serveur) : c'est un simple effacement de l'alerte,
+ * une fois que le patient a ressaisi l'information concernée.
+ */
+export function clearConflicts(): void {
+  const queue = getQueue().filter((op) => op.status !== "conflict");
+  saveQueue(queue);
+}
+
 export function onQueueChanged(callback: () => void): () => void {
   if (!isBrowser()) return () => {};
   window.addEventListener(QUEUE_CHANGED_EVENT, callback);

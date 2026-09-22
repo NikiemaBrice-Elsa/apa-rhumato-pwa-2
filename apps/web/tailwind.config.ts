@@ -11,9 +11,19 @@ const config: Config = {
         primary: {
           50: "#eaf1fb",
           100: "#d2e3f7",
+          // 200/400/600/800 (22/09/2026) : interpolées entre les teintes
+          // validées (50-100-300-500-700-900, §49) pour corriger des classes
+          // Tailwind déjà utilisées dans plusieurs écrans (ex. `bg-primary-600`
+          // de la jauge de progression) qui ne généraient aucune couleur car
+          // ces teintes n'existaient pas dans la palette — l'élément restait
+          // invisible plutôt que d'afficher une erreur de build.
+          200: "#accbf0",
           300: "#86b2ea",
+          400: "#5a91e0",
           500: "#2e6fd6",
+          600: "#265fba",
           700: "#1e4e9e",
+          800: "#1a427e",
           900: "#16355e",
         },
         accent: {

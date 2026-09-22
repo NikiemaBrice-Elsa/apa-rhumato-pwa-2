@@ -9,6 +9,7 @@ import {
   reportRequestSchema,
   exerciseUpsertSchema,
   functionalCapacityAssessmentSchema,
+  professionalLinkInviteSchema,
 } from "../validation";
 
 describe("signUpSchema (§12 — création de compte)", () => {
@@ -41,6 +42,17 @@ describe("signUpSchema (§12 — création de compte)", () => {
       consentTerms: false,
     });
     expect(result.success).toBe(false);
+  });
+
+  /** 22/09/2026 : corrige un compte introuvable par recherche email à cause
+   * d'une casse différente (réf. « Mes professionnels de santé », message
+   * direct de Dr Nikiema). */
+  it("normalise l'email en minuscules", () => {
+    const result = signUpSchema.safeParse({ ...base, email: "Aicha.KABORE@Example.COM" });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.email).toBe("aicha.kabore@example.com");
+    }
   });
 });
 
@@ -167,6 +179,31 @@ describe("declareSessionSchema (document « séance hors application », 22/09/2
 
   it("refuse une pathologie hors des six modules V1 (§7)", () => {
     const result = declareSessionSchema.safeParse({ pathology: "FIBROMYALGIE", date: "2026-09-20", realisee: true });
+    expect(result.success).toBe(false);
+  });
+});
+
+/**
+ * §41 (invitation d'un professionnel de santé) — 22/09/2026 : corrige un
+ * compte professionnel introuvable par recherche email à cause d'une casse
+ * différente (message direct de Dr Nikiema, « Mes professionnels de santé »).
+ */
+describe("professionalLinkInviteSchema (§41, correctif casse email 22/09/2026)", () => {
+  it("accepte un email valide", () => {
+    const result = professionalLinkInviteSchema.safeParse({ professionalEmail: "kine@cabinet.tld" });
+    expect(result.success).toBe(true);
+  });
+
+  it("normalise l'email en minuscules", () => {
+    const result = professionalLinkInviteSchema.safeParse({ professionalEmail: "Kine@Cabinet.TLD" });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.professionalEmail).toBe("kine@cabinet.tld");
+    }
+  });
+
+  it("refuse un email invalide", () => {
+    const result = professionalLinkInviteSchema.safeParse({ professionalEmail: "pas-un-email" });
     expect(result.success).toBe(false);
   });
 });

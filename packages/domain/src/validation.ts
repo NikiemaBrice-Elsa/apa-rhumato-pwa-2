@@ -10,7 +10,15 @@ import { PHYSICAL_ACTIVITY_TYPES } from "./physicalActivities";
 export const signUpSchema = z.object({
   firstName: z.string().trim().min(1, "Le prénom est requis."),
   lastName: z.string().trim().optional(),
-  email: z.string().trim().email().optional(),
+  // .toLowerCase() (22/09/2026) : l'email n'était normalisé nulle part avant
+  // stockage dans `users.email`, alors que la recherche d'un professionnel
+  // par email (`POST /api/professional-links`) fait une comparaison exacte
+  // — un compte créé avec une majuscule quelconque devenait introuvable pour
+  // un patient qui tape la même adresse tout en minuscules, un cas d'usage
+  // courant. Corrige la cause à la source pour toute NOUVELLE inscription ;
+  // voir aussi la comparaison insensible à la casse côté recherche, pour les
+  // comptes déjà existants.
+  email: z.string().trim().toLowerCase().email().optional(),
   phone: z.string().trim().optional(),
   password: z.string().min(8, "8 caractères minimum."),
   birthDate: z.string().optional(),
@@ -315,7 +323,8 @@ export type AdminUserStatusInput = z.infer<typeof adminUserStatusSchema>;
  * professionnel doit déjà avoir un compte (rôle attribué par l'admin,
  * `/admin/utilisateurs`) ; on ne crée jamais de compte depuis cet écran. */
 export const professionalLinkInviteSchema = z.object({
-  professionalEmail: z.string().trim().email("Email invalide."),
+  // .toLowerCase() (22/09/2026) — même correctif que signUpSchema.email.
+  professionalEmail: z.string().trim().toLowerCase().email("Email invalide."),
 });
 export type ProfessionalLinkInviteInput = z.infer<typeof professionalLinkInviteSchema>;
 
