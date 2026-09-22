@@ -41,30 +41,27 @@ describe("nextProfileLevel", () => {
 });
 
 /**
- * §58 — classification du niveau initial, réponses de Dr Nikiema du
- * 23/08/2026 (QUESTIONS_ALLOW_PROGRAM_20260823.docx, Questions 1 et 2).
+ * §58 — classification du niveau initial. Mise à jour Sprint 29 (22/09/2026,
+ * message direct de Dr Nikiema) : « Tout patient doit passer d'abord par le
+ * niveau débutant avant de progresser » — remplace la dérivation par niveau
+ * d'activité physique validée le 23/08/2026 (QUESTIONS_ALLOW_PROGRAM_
+ * 20260823.docx, Questions 1 et 2). Toujours `debutant` pour vert/orange,
+ * quel que soit `physicalActivityLevel` déclaré.
  */
-describe("classifyInitialProfileLevel (§58, réponses du 23/08/2026)", () => {
-  it("dépistage vert : niveau d'activité 1 ou 2 -> débutant", () => {
+describe("classifyInitialProfileLevel (§58, mise à jour du 22/09/2026 — toujours débutant au départ)", () => {
+  it("dépistage vert : toujours débutant, quel que soit le niveau d'activité déclaré", () => {
     expect(classifyInitialProfileLevel(1, "vert")).toBe("debutant");
     expect(classifyInitialProfileLevel(2, "vert")).toBe("debutant");
+    expect(classifyInitialProfileLevel(3, "vert")).toBe("debutant");
+    expect(classifyInitialProfileLevel(4, "vert")).toBe("debutant");
+    expect(classifyInitialProfileLevel(5, "vert")).toBe("debutant");
   });
 
-  it("dépistage vert : niveau d'activité 3 -> intermédiaire", () => {
-    expect(classifyInitialProfileLevel(3, "vert")).toBe("intermediaire");
-  });
-
-  it("dépistage vert : niveau d'activité 4 ou 5 -> avancé", () => {
-    expect(classifyInitialProfileLevel(4, "vert")).toBe("avance");
-    expect(classifyInitialProfileLevel(5, "vert")).toBe("avance");
-  });
-
-  it("dépistage vert mais niveau d'activité absent ou hors échelle -> null (jamais deviné)", () => {
-    expect(classifyInitialProfileLevel(null, "vert")).toBeNull();
-    expect(classifyInitialProfileLevel(undefined, "vert")).toBeNull();
-    expect(classifyInitialProfileLevel(0, "vert")).toBeNull();
-    expect(classifyInitialProfileLevel(6, "vert")).toBeNull();
-    expect(classifyInitialProfileLevel(2.5, "vert")).toBeNull();
+  it("dépistage vert : toujours débutant même si le niveau d'activité est absent ou hors échelle", () => {
+    expect(classifyInitialProfileLevel(null, "vert")).toBe("debutant");
+    expect(classifyInitialProfileLevel(undefined, "vert")).toBe("debutant");
+    expect(classifyInitialProfileLevel(0, "vert")).toBe("debutant");
+    expect(classifyInitialProfileLevel(6, "vert")).toBe("debutant");
   });
 
   it("dépistage orange : toujours débutant, quel que soit le niveau d'activité déclaré", () => {

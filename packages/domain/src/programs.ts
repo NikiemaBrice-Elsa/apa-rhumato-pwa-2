@@ -124,32 +124,34 @@ export interface ProgramAssignmentRecord {
  * Classification du niveau initial (débutant/intermédiaire/avancé) d'un
  * patient — fait `niveau` consommé par les règles `allow_program`
  * (`clinical_rules`, action `allow_program`) via le moteur générique
- * (`@apa/rules-engine`, `evaluateProgramAssignment`). Implémente
- * littéralement les réponses de Dr Nikiema du 23/08/2026 à
- * `QUESTIONS_ALLOW_PROGRAM_20260823.docx` :
+ * (`@apa/rules-engine`, `evaluateProgramAssignment`).
  *
- * - **Dépistage `vert`** : le niveau initial dépend du niveau d'activité
- *   physique déclaré à l'inscription (`physical_activity_level`, échelle
- *   1-5, §13) — Proposition A retenue, uniforme sur les 6 pathologies :
- *   1-2 → `debutant`, 3 → `intermediaire`, 4-5 → `avance`.
- * - **Dépistage `orange`** : niveau initial systématiquement plafonné à
- *   `debutant`, QUEL QUE SOIT le niveau d'activité déclaré — réponse
- *   explicite de Dr Nikiema (Question 1 : « le niveau est automatiquement
- *   plafonné à débutant » ; Question 2 : accès automatique autorisé, mais
- *   « exclusivement au niveau débutant »). L'assignation au programme
- *   débutant déjà validé (avec ses propres `safety_rules`) EST
- *   l'« adaptation de sécurité » qu'il demande — aucun critère
- *   supplémentaire par motif d'alerte n'a été introduit, pour ne pas
- *   inventer une granularité qu'il n'a pas fournie.
+ * Mise à jour Sprint 29 (22/09/2026, message direct de Dr Nikiema) :
+ * « Tout patient doit passer d'abord par le niveau débutant avant de
+ * progresser. » Remplace la réponse du 23/08/2026 à
+ * `QUESTIONS_ALLOW_PROGRAM_20260823.docx` (Proposition A, niveau initial
+ * dérivé du niveau d'activité physique déclaré : 1-2 → débutant,
+ * 3 → intermédiaire, 4-5 → avancé) — décision produit/clinique ultérieure et
+ * explicite qui prévaut. Toute progression vers l'intermédiaire ou l'avancé
+ * passe désormais EXCLUSIVEMENT par le système de progression volontaire
+ * (§29, §58, §70 ; `evaluateProgressionDecision`,
+ * `POST /api/programs/progress`) — jamais par une classification initiale.
+ * `physical_activity_level` (§13) reste enregistré au profil patient mais
+ * n'intervient plus dans le calcul du niveau initial.
+ *
+ * - **Dépistage `vert` ou `orange`** : toujours `debutant` — aucune
+ *   exception, quel que soit le niveau d'activité physique déclaré.
  * - **Dépistage `rouge` ou `pending_validation`** : retourne `null`, pour
  *   qu'aucune règle `allow_program` ne puisse jamais matcher — le rouge
  *   bloque déjà tout programme automatique (mécanisme indépendant, Sprint
  *   3) ; `pending_validation` ne doit jamais produire d'attribution
  *   automatique (§57, §59, §78).
- * - **`physicalActivityLevel` absent ou hors de l'échelle 1-5, sous un
- *   dépistage `vert`** : retourne `null` plutôt que de deviner un niveau —
- *   se traduit par `MEDICAL_PARAMETER_REQUIRED` côté sélection de
- *   programme (aucune règle `allow_program` ne matche sans fait `niveau`).
+ *
+ * `physicalActivityLevel` reste un paramètre de la fonction (signature
+ * inchangée, pour ne pas casser ses appelants) mais n'influence plus la
+ * valeur retournée — conservé uniquement pour ne pas modifier
+ * `apps/web/src/app/api/assessments/route.ts` au-delà de ce qui est
+ * nécessaire.
  */
 export function classifyInitialProfileLevel(
   physicalActivityLevel: number | null | undefined,
@@ -159,22 +161,8 @@ export function classifyInitialProfileLevel(
     return null;
   }
 
-  if (screeningStatus === "orange") {
-    return "debutant";
-  }
-
-  // screeningStatus === "vert"
-  if (
-    physicalActivityLevel === null ||
-    physicalActivityLevel === undefined ||
-    !Number.isInteger(physicalActivityLevel) ||
-    physicalActivityLevel < 1 ||
-    physicalActivityLevel > 5
-  ) {
-    return null;
-  }
-
-  if (physicalActivityLevel <= 2) return "debutant";
-  if (physicalActivityLevel === 3) return "intermediaire";
-  return "avance";
+  // vert ou orange : toujours débutant (Sprint 29, 22/09/2026) — la
+  // progression vers un niveau supérieur est désormais exclusivement
+  // volontaire, via le système de progression (POST /api/programs/progress).
+  return "debutant";
 }

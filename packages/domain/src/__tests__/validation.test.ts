@@ -4,6 +4,7 @@ import {
   patientProfileSchema,
   startSessionSchema,
   completeSessionSchema,
+  declareSessionSchema,
   measurementSchema,
   reportRequestSchema,
   exerciseUpsertSchema,
@@ -104,6 +105,68 @@ describe("completeSessionSchema (§69 — feedback après séance)", () => {
 
   it("refuse une douleur après séance hors de l'échelle 0-10", () => {
     const result = completeSessionSchema.safeParse({ realisee: true, douleurApres: 12 });
+    expect(result.success).toBe(false);
+  });
+});
+
+/**
+ * Sprint 29 (22/09/2026) — déclarer une séance déjà réalisée hors de
+ * l'application, en un seul envoi (vérification + feedback réunis, contrairement
+ * à startSessionSchema/completeSessionSchema qui couvrent une séance en direct).
+ */
+describe("declareSessionSchema (document « séance hors application », 22/09/2026)", () => {
+  it("accepte une déclaration minimale valide", () => {
+    const result = declareSessionSchema.safeParse({
+      pathology: "ARTHROSE_GENOU",
+      date: "2026-09-20",
+      realisee: true,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("accepte une déclaration avec feedback complet", () => {
+    const result = declareSessionSchema.safeParse({
+      pathology: "ARTHROSE_GENOU",
+      date: "2026-09-20",
+      douleurAvant: 3,
+      fatigueAvant: 2,
+      realisee: true,
+      difficulte: "adaptee",
+      douleurApres: 2,
+      fatigueApres: 3,
+      ressenti: "Fait à la maison, sans l'appli.",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("refuse une date dans le futur (on ne déclare pas une séance qui n'a pas encore eu lieu)", () => {
+    const future = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const result = declareSessionSchema.safeParse({ pathology: "ARTHROSE_GENOU", date: future, realisee: true });
+    expect(result.success).toBe(false);
+  });
+
+  it("accepte une date dans le passé", () => {
+    const result = declareSessionSchema.safeParse({ pathology: "ARTHROSE_GENOU", date: "2020-01-01", realisee: true });
+    expect(result.success).toBe(true);
+  });
+
+  it("refuse un format de date invalide", () => {
+    const result = declareSessionSchema.safeParse({ pathology: "ARTHROSE_GENOU", date: "20/09/2026", realisee: true });
+    expect(result.success).toBe(false);
+  });
+
+  it("refuse une difficulté renseignée si la séance n'a pas été réalisée", () => {
+    const result = declareSessionSchema.safeParse({
+      pathology: "ARTHROSE_GENOU",
+      date: "2026-09-20",
+      realisee: false,
+      difficulte: "facile",
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("refuse une pathologie hors des six modules V1 (§7)", () => {
+    const result = declareSessionSchema.safeParse({ pathology: "FIBROMYALGIE", date: "2026-09-20", realisee: true });
     expect(result.success).toBe(false);
   });
 });

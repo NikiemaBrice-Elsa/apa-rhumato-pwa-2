@@ -132,6 +132,49 @@ export const startSessionWithPlanningSchema = startSessionSchema.extend({
   plannedSessionId: z.string().uuid().optional(),
 });
 
+/**
+ * Sprint 29 (22/09/2026, message direct de Dr Nikiema) : « Le patient doit
+ * pouvoir faire ses exercices sans passer par l'appli et renseigner plus
+ * tard dans l'appli puis enregistrer. » Contrairement à `startSessionSchema`
+ * + `completeSessionSchema` (deux appels, séance déjà en cours), ce schéma
+ * couvre une séance déclarée A POSTERIORI en un seul envoi : la date réelle
+ * de la séance (`date`, jamais dans le futur — on ne peut pas déclarer une
+ * séance qui n'a pas encore eu lieu) plus tous les champs de vérification ET
+ * de feedback réunis, puisque les deux étapes ont déjà eu lieu hors de
+ * l'application au moment de la saisie.
+ */
+export const declareSessionSchema = z
+  .object({
+    pathology: z.enum([
+      "LOMBALGIE_COMMUNE",
+      "ARTHROSE_GENOU",
+      "ARTHROSE_HANCHE",
+      "POLYARTHRITE_RHUMATOIDE",
+      "SPONDYLOARTHRITE_AXIALE",
+      "OSTEOPOROSE",
+    ]),
+    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date invalide (format attendu AAAA-MM-JJ)."),
+    douleurAvant: z.number().int().min(0).max(10).optional(),
+    fatigueAvant: z.number().int().min(0).max(10).optional(),
+    etatGeneralAvant: z.string().max(500).optional(),
+    realisee: z.boolean(),
+    difficulte: z.enum(["facile", "adaptee", "difficile", "tres_difficile"]).optional(),
+    douleurApres: z.number().int().min(0).max(10).optional(),
+    fatigueApres: z.number().int().min(0).max(10).optional(),
+    ressenti: z.string().max(2000).optional(),
+    completedExerciseIds: z.array(z.string().uuid()).optional(),
+  })
+  .refine((data) => data.realisee || data.difficulte === undefined, {
+    message: "La difficulté ne peut être renseignée que si la séance a été réalisée.",
+    path: ["difficulte"],
+  })
+  .refine((data) => new Date(`${data.date}T23:59:59.999`).getTime() <= Date.now(), {
+    message: "La date ne peut pas être dans le futur.",
+    path: ["date"],
+  });
+
+export type DeclareSessionInput = z.infer<typeof declareSessionSchema>;
+
 /** Réf. B11 : report d'une séance planifiée, « sans pénalisation » — aucune
  * limite numérique de report n'a été chiffrée par Dr Nikiema ; la seule
  * contrainte imposée ici est que la nouvelle date soit strictement dans le

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { PATHOLOGY_CODES, type PathologyCode } from "@apa/domain";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -36,6 +37,13 @@ export default async function SeancePage({
         initialPlannedSessionId={typeof searchParams.planned === "string" ? searchParams.planned : undefined}
         isPremium={isPremium}
       />
+      <p className="text-center text-sm text-primary-500">
+        Vous avez fait votre séance hors de l'application&nbsp;?{" "}
+        <Link href="/seance/declarer" className="font-medium text-primary-700 underline">
+          Déclarez-la ici
+        </Link>
+        .
+      </p>
     </main>
   );
 }
