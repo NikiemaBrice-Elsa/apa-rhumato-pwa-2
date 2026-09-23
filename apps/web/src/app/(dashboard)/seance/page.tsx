@@ -29,6 +29,20 @@ export default async function SeancePage({
 
   const { isPremium } = await getPremiumStatus(supabase, user.id);
 
+  // Réponse de Dr Nikiema du 23/09/2026, point 2 : quand le patient est
+  // suivi pour plusieurs pathologies, celles-ci doivent s'afficher pour
+  // qu'il choisisse. Même source que le tableau de bord
+  // (apps/web/src/app/(dashboard)/tableau-de-bord/page.tsx) :
+  // `user_program_assignments` est la source de vérité des pathologies
+  // effectivement suivies (pas la pathologie déclarée en profil).
+  const { data: assignments } = await supabase
+    .from("user_program_assignments")
+    .select("pathology")
+    .eq("user_id", user.id);
+  const trackedPathologies = Array.from(
+    new Set((assignments ?? []).map((row) => row.pathology as PathologyCode))
+  );
+
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col gap-6 px-6 py-12">
       <h1 className="text-2xl font-semibold text-primary-900">Séance</h1>
@@ -36,6 +50,7 @@ export default async function SeancePage({
         initialPathology={asPathology(searchParams.pathology)}
         initialPlannedSessionId={typeof searchParams.planned === "string" ? searchParams.planned : undefined}
         isPremium={isPremium}
+        trackedPathologies={trackedPathologies}
       />
       <p className="text-center text-sm text-primary-500">
         Vous avez fait votre séance hors de l'application&nbsp;?{" "}

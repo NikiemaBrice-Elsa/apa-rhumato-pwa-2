@@ -17,9 +17,10 @@ import { dependencyToken } from "@/lib/offlineQueue";
 import { enqueueOperation } from "@/lib/offlineStorage";
 import { ExerciseDetails } from "@/components/exercises/ExerciseDetails";
 import { AudioCoach } from "@/components/exercises/AudioCoach";
+import { ExerciseTypePreview } from "@/components/exercises/ExerciseTypePreview";
 import { CountdownTimer } from "@/components/activite/CountdownTimer";
 
-type Step = "pathology" | "verification" | "session" | "feedback" | "result";
+type Step = "pathology" | "type_exercice" | "verification" | "session" | "feedback" | "result";
 
 interface SessionExerciseView {
   exerciseId: string;
@@ -107,11 +108,40 @@ interface SessionFlowProps {
    * ce composant client ne recalcule jamais lui-même l'accès premium.
    */
   isPremium?: boolean;
+  /**
+   * Pathologies effectivement suivies par le patient (table
+   * `user_program_assignments`, même source que le tableau de bord) —
+   * réponse de Dr Nikiema du 23/09/2026, point 2 : « si un patient est suivi
+   * pour deux ou 3 pathologies, [...] les noms des pathologies doivent
+   * s'afficher et il choisit ». Quand une seule pathologie est suivie, elle
+   * est présélectionnée automatiquement (pas la peine de choisir parmi une
+   * seule option) ; quand plusieurs le sont, l'étape "pathology" ci-dessous
+   * n'affiche plus que celles-ci (plus la liste complète des 6 pathologies).
+   * Si non fourni (ou vide, ex. patient sans programme assigné), on retombe
+   * sur le comportement historique (liste complète des 6 pathologies).
+   */
+  trackedPathologies?: PathologyCode[];
 }
 
-export function SessionFlow({ initialPathology, initialPlannedSessionId, isPremium = false }: SessionFlowProps = {}) {
-  const [step, setStep] = useState<Step>(initialPathology ? "verification" : "pathology");
-  const [pathology, setPathology] = useState<PathologyCode | null>(initialPathology ?? null);
+export function SessionFlow({
+  initialPathology,
+  initialPlannedSessionId,
+  isPremium = false,
+  trackedPathologies,
+}: SessionFlowProps = {}) {
+  const singleTrackedPathology =
+    !initialPathology && trackedPathologies?.length === 1 ? trackedPathologies[0] : null;
+  const preselectedPathology = initialPathology ?? singleTrackedPathology;
+
+  // Réponse de Dr Nikiema du 23/09/2026, point 1 : l'écran « quels exercices
+  // pour quelle pathologie » (ExerciseTypePreview) doit apparaître « à chaque
+  // fois que le patient souhaite réaliser ces séances », donc y compris
+  // lorsque la pathologie est déjà présélectionnée (ancien comportement :
+  // saut direct à "verification" quand `initialPathology` était fourni).
+  const [step, setStep] = useState<Step>(preselectedPathology ? "type_exercice" : "pathology");
+  const [pathology, setPathology] = useState<PathologyCode | null>(preselectedPathology);
+  const pathologyChoices =
+    trackedPathologies && trackedPathologies.length > 0 ? trackedPathologies : PATHOLOGY_CODES;
   const [plannedSessionId] = useState<string | undefined>(initialPlannedSessionId);
   const [completedExerciseIds, setCompletedExerciseIds] = useState<Set<string>>(new Set());
   const [douleurAvant, setDouleurAvant] = useState(0);
@@ -132,7 +162,7 @@ export function SessionFlow({ initialPathology, initialPlannedSessionId, isPremi
 
   function selectPathology(code: PathologyCode) {
     setPathology(code);
-    setStep("verification");
+    setStep("type_exercice");
   }
 
   function queueSessionStart() {
@@ -269,7 +299,7 @@ export function SessionFlow({ initialPathology, initialPlannedSessionId, isPremi
     return (
       <div className="flex flex-col gap-3">
         <p className="text-primary-700">Pour quelle situation de santé démarrez-vous une séance&nbsp;?</p>
-        {PATHOLOGY_CODES.map((code) => (
+        {pathologyChoices.map((code) => (
           <button
             key={code}
             type="button"
@@ -279,6 +309,20 @@ export function SessionFlow({ initialPathology, initialPlannedSessionId, isPremi
             {PATHOLOGY_LABELS_FR[code]}
           </button>
         ))}
+      </div>
+    );
+  }
+
+  if (step === "type_exercice" && pathology) {
+    return (
+      <div className="flex flex-col gap-4">
+        <p className="text-sm text-primary-500">
+          Situation sélectionnée : <strong>{PATHOLOGY_LABELS_FR[pathology]}</strong>
+        </p>
+        <ExerciseTypePreview pathology={pathology} />
+        <Button type="button" onClick={() => setStep("verification")}>
+          Continuer
+        </Button>
       </div>
     );
   }
