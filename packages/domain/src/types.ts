@@ -32,7 +32,10 @@ export interface PatientProfile {
   bmi?: number | null;
   waistCircumferenceCm?: number | null;
   physicalActivityLevel?: 1 | 2 | 3 | 4 | 5 | null;
-  mainPathology?: PathologyCode | null;
+  /** Sprint 32 (23/09/2026) : remplace l'ancien champ `mainPathology`
+   * (une seule pathologie) — un patient peut être suivi pour plusieurs
+   * pathologies à la fois (instruction directe de Dr Nikiema). */
+  mainPathologies: PathologyCode[];
   objectives: ObjectiveCode[];
   functionalLimitations?: string | null;
   painBaseline?: number | null; // 0-10

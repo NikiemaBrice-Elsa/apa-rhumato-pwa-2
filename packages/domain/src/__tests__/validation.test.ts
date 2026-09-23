@@ -59,7 +59,7 @@ describe("signUpSchema (§12 — création de compte)", () => {
 describe("patientProfileSchema (§13 — profil patient)", () => {
   it("accepte un profil minimal valide", () => {
     const result = patientProfileSchema.safeParse({
-      mainPathology: "ARTHROSE_GENOU",
+      mainPathologies: ["ARTHROSE_GENOU"],
       objectives: ["AMELIORER_MOBILITE"],
     });
     expect(result.success).toBe(true);
@@ -71,8 +71,29 @@ describe("patientProfileSchema (§13 — profil patient)", () => {
   });
 
   it("refuse une pathologie hors des six modules V1 (§7)", () => {
-    const result = patientProfileSchema.safeParse({ mainPathology: "FIBROMYALGIE" });
+    const result = patientProfileSchema.safeParse({ mainPathologies: ["FIBROMYALGIE"] });
     expect(result.success).toBe(false);
+  });
+
+  // Sprint 32 (23/09/2026, instruction directe de Dr Nikiema) : choix
+  // multiple désormais possible pour les pathologies suivies dans le profil.
+  it("accepte plusieurs pathologies suivies à la fois", () => {
+    const result = patientProfileSchema.safeParse({
+      mainPathologies: ["ARTHROSE_GENOU", "LOMBALGIE_COMMUNE", "OSTEOPOROSE"],
+      objectives: [],
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.mainPathologies).toHaveLength(3);
+    }
+  });
+
+  it("prend par défaut une liste vide de pathologies si aucune n'est fournie", () => {
+    const result = patientProfileSchema.safeParse({ objectives: [] });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.mainPathologies).toEqual([]);
+    }
   });
 });
 

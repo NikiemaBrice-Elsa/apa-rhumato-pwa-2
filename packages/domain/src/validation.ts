@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { PROGRESSION_DECISIONS } from "./rules";
 import { PHYSICAL_ACTIVITY_TYPES } from "./physicalActivities";
+import { PATHOLOGY_CODES } from "./pathologies";
 
 /**
  * Schémas de validation partagés (utilisés côté client ET côté serveur —
@@ -48,14 +49,14 @@ export const patientProfileSchema = z.object({
   weightKg: z.number().positive().max(400).optional(),
   waistCircumferenceCm: z.number().positive().max(300).optional(),
   physicalActivityLevel: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5)]).optional(),
-  mainPathology: z.enum([
-    "LOMBALGIE_COMMUNE",
-    "ARTHROSE_GENOU",
-    "ARTHROSE_HANCHE",
-    "POLYARTHRITE_RHUMATOIDE",
-    "SPONDYLOARTHRITE_AXIALE",
-    "OSTEOPOROSE",
-  ]).optional(),
+  // Sprint 32 (23/09/2026, instruction directe de Dr Nikiema) : « dans le
+  // profil on ne peut pas choisir plusieurs pathologies actuellement. Il
+  // faut modifier pour qu'un choix multiple soit possible » — remplace le
+  // choix unique (`z.enum(...).optional()`) par un tableau, même discipline
+  // que `objectives` juste en dessous (défaut tableau vide, jamais `null`).
+  // `.max(6)` : il n'existe que 6 pathologies V1 (§7), aucune limite
+  // artificielle en deçà.
+  mainPathologies: z.array(z.enum(PATHOLOGY_CODES)).max(6).default([]),
   objectives: z.array(z.string()).max(10).default([]),
   functionalLimitations: z.string().max(2000).optional(),
   painBaseline: z.number().int().min(0).max(10).optional(),

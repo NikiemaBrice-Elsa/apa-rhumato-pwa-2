@@ -64,7 +64,11 @@ export async function PUT(request: Request) {
       bmi,
       waist_circumference_cm: input.waistCircumferenceCm ?? null,
       physical_activity_level: input.physicalActivityLevel ?? null,
-      main_pathology: input.mainPathology ?? null,
+      // Sprint 32 (23/09/2026) : `main_pathologies` (tableau) remplace
+      // `main_pathology` (une seule valeur) — voir infra/db/migrations/
+      // 0024_patient_profiles_multiple_pathologies.sql. L'ancienne colonne
+      // n'est plus écrite (conservée telle quelle pour l'historique).
+      main_pathologies: input.mainPathologies,
       objectives: input.objectives,
       functional_limitations: input.functionalLimitations ?? null,
       pain_baseline: input.painBaseline ?? null,

@@ -48,7 +48,12 @@ const fr = {
     bmi: "IMC calculé",
     waist: "Tour de taille (cm)",
     activityLevel: "Niveau d'activité physique",
-    mainPathology: "Situation de santé principale",
+    // Pluriel depuis le Sprint 32 (23/09/2026, instruction directe de
+    // Dr Nikiema : « on ne peut pas choisir plusieurs pathologies
+    // actuellement. Il faut modifier pour qu'un choix multiple soit
+    // possible ») — voir PatientProfileForm.tsx (cases à cocher au lieu
+    // d'un menu déroulant à choix unique).
+    mainPathology: "Situations de santé suivies",
     objectives: "Vos objectifs",
     save: "Enregistrer",
     disclaimer: "Ces informations servent à personnaliser votre accompagnement. Elles ne remplacent pas un avis médical.",

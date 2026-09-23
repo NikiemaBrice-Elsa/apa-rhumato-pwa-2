@@ -64,8 +64,14 @@ describe("Validation stricte : les champs typés rejettent une valeur d'injectio
     expect(result.success).toBe(false);
   });
 
+  // Sprint 32 (23/09/2026) : `mainPathology` (une seule valeur) a été
+  // remplacé par `mainPathologies` (tableau, choix multiple désormais
+  // possible dans le profil — instruction directe de Dr Nikiema). Ce test
+  // vérifie donc désormais qu'UN ÉLÉMENT du tableau hors de l'ensemble
+  // fermé (y compris une tentative d'injection) fait rejeter tout le
+  // profil — pas seulement l'ancien champ singulier, qui n'existe plus.
   it("patientProfileSchema : une pathologie hors de l'ensemble fermé (y compris une tentative d'injection) est rejetée", () => {
-    const result = patientProfileSchema.safeParse({ mainPathology: SQLI_PAYLOAD });
+    const result = patientProfileSchema.safeParse({ mainPathologies: [SQLI_PAYLOAD] });
     expect(result.success).toBe(false);
   });
 

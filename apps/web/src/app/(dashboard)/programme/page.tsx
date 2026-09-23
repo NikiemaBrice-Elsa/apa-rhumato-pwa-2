@@ -1,14 +1,12 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import {
-  PATHOLOGY_LABELS_FR,
-  PROFILE_LEVEL_LABELS_FR,
-  EXERCISE_CATEGORY_LABELS_FR,
-  categoriesForPathology,
-  type PathologyCode,
-  type ProfileLevel,
-  type ExerciseCategory,
-} from "@apa/domain";
+import { PATHOLOGY_LABELS_FR, PROFILE_LEVEL_LABELS_FR, type PathologyCode, type ProfileLevel } from "@apa/domain";
+import { ProgramExerciseTabs, type ProgramExerciseView } from "@/components/exercises/ProgramExerciseTabs";
+
+interface ProgramExerciseWithCategory extends ProgramExerciseView {
+  category: string;
+}
 
 interface AssignmentRow {
   pathology: PathologyCode;
@@ -26,28 +24,61 @@ interface ProgramRow {
   frequency_per_week: number | null;
 }
 
-interface ExerciseCategoryRow {
-  category: ExerciseCategory;
-  exercise_pathologies: Array<{ pathology_code: PathologyCode }>;
+interface ProgramExerciseLibraryFields {
+  exercise_id: string;
+  name: string;
+  short_description: string;
+  category: string;
+  starting_position: string | null;
+  execution_steps: string | null;
+  breathing_instruction: string | null;
+  duration_seconds: number | null;
+  repetitions: number | null;
+  sets: number | null;
+  rest_time_seconds: number | null;
+  precautions: string | null;
+  contraindications: string | null;
+  stop_criteria: string | null;
+  medical_validation_status: string;
+}
+
+interface ProgramExerciseRow {
+  order_index: number;
+  exercise_id: string;
+  // PostgREST renvoie un objet pour une relation `!inner` sur la plupart des
+  // versions, mais un tableau à un élément selon le contexte de la requête
+  // (même ambiguïté déjà rencontrée dans exercices/page.tsx et
+  // api/sessions/declare/route.ts) — les deux formes sont donc acceptées.
+  exercise_library: ProgramExerciseLibraryFields | ProgramExerciseLibraryFields[] | null;
 }
 
 /**
- * "Mon programme" (§67-68) — Sprint 6.
- * Affiche la dernière tentative d'attribution par pathologie
- * (`user_program_assignments`). Tant qu'aucune règle `allow_program`
- * validée n'existe (voir docs/MEDICAL_VALIDATION_NEEDED.md), l'état est
- * volontairement « en attente » pour toutes les pathologies évaluées —
- * jamais de programme inventé (§57, §59, §78).
+ * "Mon programme" (§67-68) — Sprint 6, restructurée au Sprint 32
+ * (23/09/2026, instruction directe de Dr Nikiema) :
  *
- * Sprint 29 (22/09/2026, message direct de Dr Nikiema) : « ce sont les types
- * d'exercices autorisés pour la pathologie du patient qui doivent
- * apparaitre » — pour chaque pathologie évaluée, affiche désormais aussi les
- * types d'exercices (`EXERCISE_CATEGORIES`) réellement disponibles pour
- * cette pathologie, via `categoriesForPathology` (déjà construite au
- * Sprint 28 pour la bibliothèque d'exercices, même source de données —
- * `exercise_library` validés uniquement, joints à `exercise_pathologies`).
- * Affiché indépendamment de l'attribution d'un programme précis : ce sont
- * les types d'exercices liés à la PATHOLOGIE, pas au programme assigné.
+ * « Dans la section "Mon programme", il doit y avoir : La liste des
+ * pathologies du patient, sous chaque pathologie les onglets "aérobie" et
+ * "renforcement" et quand le patient clique dessus il voit les exercices
+ * qu'il doit faire. Et depuis "Mon programme", le patient doit pouvoir
+ * cliquer sur "démarrer une séance". »
+ *
+ * Remplace l'ancien affichage (badges "types d'exercices autorisés", sans
+ * accès aux exercices concrets ni bouton de démarrage) par : la liste des
+ * pathologies suivies (`user_program_assignments`, dernière tentative par
+ * pathologie, comme avant), puis pour chacune deux onglets Aérobie /
+ * Renforcement (`ProgramExerciseTabs`, mêmes deux types que l'écran
+ * pédagogique du Sprint 31) affichant les exercices RÉELS du programme
+ * validé assigné (`program_exercises` → `exercise_library`, même source de
+ * données que le démarrage d'une séance en direct, `POST /api/sessions`, et
+ * que la déclaration a posteriori, `GET /api/sessions/declare`) — jamais une
+ * liste théorique. Tant qu'aucun programme validé n'est assigné pour une
+ * pathologie, l'état « en attente de validation médicale » déjà en place
+ * reste affiché (§57, §59, §78).
+ *
+ * Le lien « Démarrer une séance » par pathologie réutilise `?pathology=...`,
+ * déjà supporté par `apps/web/src/app/(dashboard)/seance/page.tsx`
+ * (Sprint 29/31) pour présélectionner la pathologie et passer directement à
+ * l'écran pédagogique « quels exercices » avant la vérification rapide.
  */
 export default async function ProgrammePage() {
   const supabase = createSupabaseServerClient();
@@ -88,14 +119,59 @@ export default async function ProgrammePage() {
 
   const rows = Array.from(latestByPathology.values());
 
-  const { data: exerciseRows } = await supabase
-    .from("exercise_library")
-    .select("category, exercise_pathologies(pathology_code)");
+  // Exercices réels du programme validé, par pathologie (mêmes champs que
+  // ExerciseDetails.tsx, déjà utilisé pour l'écran de séance en direct).
+  const exercisesByPathology = new Map<PathologyCode, ProgramExerciseWithCategory[]>();
+  await Promise.all(
+    rows.map(async (row) => {
+      const program = row.program_id ? programsById.get(row.program_id) : undefined;
+      if (!program) return;
 
-  const exercisesForCategories = ((exerciseRows ?? []) as ExerciseCategoryRow[]).map((row) => ({
-    category: row.category,
-    pathologies: (row.exercise_pathologies ?? []).map((p) => p.pathology_code),
-  }));
+      const { data: programExercises } = await supabase
+        .from("program_exercises")
+        .select(
+          "order_index, exercise_id, exercise_library!inner(exercise_id, name, short_description, category, starting_position, execution_steps, breathing_instruction, duration_seconds, repetitions, sets, rest_time_seconds, precautions, contraindications, stop_criteria, medical_validation_status)"
+        )
+        .eq("program_id", program.program_id)
+        .eq("exercise_library.medical_validation_status", "validated")
+        .order("order_index");
+
+      // `flatMap` (retourne `[]` plutôt que `null` pour un exercice sans
+      // détail) plutôt qu'un `.map().filter((ex): ex is X => ...)` : ce
+      // dernier faisait échouer `next build` (`tsc --strict`) — les champs
+      // optionnels d'`ExerciseDetailFields` (`startingPosition?: string |
+      // null`, etc., ex-`ExerciseDetails.tsx`) acceptent `undefined`, alors
+      // que l'objet construit ci-dessous les fournit toujours en
+      // `string | null` (jamais absent) ; un garde de type (`ex is …`) exige
+      // une compatibilité dans les deux sens que cet écart casse, alors
+      // qu'une simple affectation (ce que fait `flatMap` implicitement) ne
+      // vérifie que le sens utile ici et compile sans ambiguïté.
+      const exercises = ((programExercises ?? []) as ProgramExerciseRow[]).flatMap((pe) => {
+        const exercise = Array.isArray(pe.exercise_library) ? pe.exercise_library[0] : pe.exercise_library;
+        if (!exercise) return [];
+        return [
+          {
+            exerciseId: exercise.exercise_id,
+            name: exercise.name,
+            shortDescription: exercise.short_description,
+            category: exercise.category,
+            startingPosition: exercise.starting_position,
+            executionSteps: exercise.execution_steps,
+            breathingInstruction: exercise.breathing_instruction,
+            durationSeconds: exercise.duration_seconds,
+            repetitions: exercise.repetitions,
+            sets: exercise.sets,
+            restTimeSeconds: exercise.rest_time_seconds,
+            precautions: exercise.precautions,
+            contraindications: exercise.contraindications,
+            stopCriteria: exercise.stop_criteria,
+          },
+        ];
+      });
+
+      exercisesByPathology.set(row.pathology, exercises);
+    })
+  );
 
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col gap-6 px-6 py-12">
@@ -110,20 +186,29 @@ export default async function ProgrammePage() {
           .
         </p>
       ) : (
-        <ul className="flex flex-col gap-3">
+        <ul className="flex flex-col gap-4">
           {rows.map((row) => {
             const program = row.program_id ? programsById.get(row.program_id) : undefined;
-            const categories = categoriesForPathology(exercisesForCategories, row.pathology);
+            const pathologyExercises = exercisesByPathology.get(row.pathology) ?? [];
+            const aerobique = pathologyExercises.filter((ex) => ex.category === "aerobique");
+            const renforcement = pathologyExercises.filter((ex) => ex.category === "renforcement");
+
             return (
               <li key={row.pathology} className="rounded-xl border border-primary-300 bg-white p-4">
-                <p className="font-medium text-primary-900">{PATHOLOGY_LABELS_FR[row.pathology]}</p>
+                <div className="flex items-start justify-between gap-3">
+                  <p className="font-medium text-primary-900">{PATHOLOGY_LABELS_FR[row.pathology]}</p>
+                  <Link
+                    href={`/seance?pathology=${row.pathology}`}
+                    className="shrink-0 rounded-lg bg-primary-700 px-3 py-1.5 text-xs font-medium text-white"
+                  >
+                    Démarrer une séance
+                  </Link>
+                </div>
                 {program ? (
-                  <>
-                    <p className="text-sm text-primary-700">
-                      Niveau {PROFILE_LEVEL_LABELS_FR[program.profile_level]}
-                      {program.frequency_per_week ? ` · ${program.frequency_per_week}x/semaine` : ""}
-                    </p>
-                  </>
+                  <p className="text-sm text-primary-700">
+                    Niveau {PROFILE_LEVEL_LABELS_FR[program.profile_level]}
+                    {program.frequency_per_week ? ` · ${program.frequency_per_week}x/semaine` : ""}
+                  </p>
                 ) : (
                   <p className="text-sm text-primary-700">
                     Aucun programme ne peut encore être attribué automatiquement pour cette pathologie :
@@ -131,27 +216,7 @@ export default async function ProgrammePage() {
                     eux-mêmes (voir « Paramètres médicaux en attente de validation »).
                   </p>
                 )}
-                {categories.length > 0 ? (
-                  <div className="mt-2 flex flex-col gap-1">
-                    <p className="text-xs font-medium uppercase tracking-wide text-primary-500">
-                      Types d&apos;exercices autorisés
-                    </p>
-                    <ul className="flex flex-wrap gap-1.5">
-                      {categories.map((category) => (
-                        <li
-                          key={category}
-                          className="rounded-full border border-primary-200 bg-primary-50 px-2.5 py-0.5 text-xs text-primary-700"
-                        >
-                          {EXERCISE_CATEGORY_LABELS_FR[category]}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ) : (
-                  <p className="mt-2 text-xs text-primary-500">
-                    Aucun type d&apos;exercice validé pour cette pathologie pour le moment.
-                  </p>
-                )}
+                {program && <ProgramExerciseTabs aerobique={aerobique} renforcement={renforcement} />}
               </li>
             );
           })}

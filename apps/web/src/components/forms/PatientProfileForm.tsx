@@ -22,7 +22,10 @@ type ExistingProfile = {
   weight_kg: number | null;
   waist_circumference_cm: number | null;
   physical_activity_level: number | null;
-  main_pathology: string | null;
+  // Sprint 32 (23/09/2026) : tableau depuis le remplacement de
+  // `main_pathology` (une seule pathologie) par `main_pathologies`
+  // (plusieurs) — instruction directe de Dr Nikiema.
+  main_pathologies: string[] | null;
   objectives: string[] | null;
   track_cardio_params: boolean | null;
   reminder_time: string | null;
@@ -93,7 +96,10 @@ export function PatientProfileForm() {
       weightKg: num("weightKg"),
       waistCircumferenceCm: num("waistCircumferenceCm"),
       physicalActivityLevel: num("physicalActivityLevel"),
-      mainPathology: String(formData.get("mainPathology") || "") || undefined,
+      // Sprint 32 (23/09/2026, instruction directe de Dr Nikiema) : choix
+      // multiple désormais possible — même technique que `objectives`
+      // juste en dessous (cases à cocher, `formData.getAll`).
+      mainPathologies: formData.getAll("mainPathologies").map(String),
       objectives: formData.getAll("objectives").map(String),
       painBaseline: num("painBaseline"),
       fatigueBaseline: num("fatigueBaseline"),
@@ -222,23 +228,30 @@ export function PatientProfileForm() {
         </select>
       </Field>
 
-      <Field label={dict.profile.mainPathology} htmlFor="mainPathology" error={errors.mainPathology}>
-        <select
-          id="mainPathology"
-          name="mainPathology"
-          className="input"
-          defaultValue={existingProfile?.main_pathology ?? ""}
-        >
-          <option value="" disabled>
-            Sélectionner…
-          </option>
-          {PATHOLOGY_CODES.map((code) => (
-            <option key={code} value={code}>
-              {PATHOLOGY_LABELS_FR[code]}
-            </option>
-          ))}
-        </select>
-      </Field>
+      {/* Sprint 32 (23/09/2026, instruction directe de Dr Nikiema : « dans le
+          profil on ne peut pas choisir plusieurs pathologies actuellement.
+          Il faut modifier pour qu'un choix multiple soit possible ») —
+          remplace le menu déroulant à choix unique par des cases à cocher,
+          même schéma que le fieldset « objectifs » juste en dessous. */}
+      <fieldset className="flex flex-col gap-2">
+        <legend className="font-medium text-primary-900">{dict.profile.mainPathology}</legend>
+        {PATHOLOGY_CODES.map((code) => (
+          <label key={code} className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              name="mainPathologies"
+              value={code}
+              defaultChecked={existingProfile?.main_pathologies?.includes(code) ?? false}
+            />
+            {PATHOLOGY_LABELS_FR[code]}
+          </label>
+        ))}
+        {errors.mainPathologies && (
+          <p role="alert" className="text-sm text-red-700">
+            {errors.mainPathologies}
+          </p>
+        )}
+      </fieldset>
 
       <fieldset className="flex flex-col gap-2">
         <legend className="font-medium text-primary-900">{dict.profile.objectives}</legend>
