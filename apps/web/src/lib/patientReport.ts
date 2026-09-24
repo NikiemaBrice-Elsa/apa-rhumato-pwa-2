@@ -5,10 +5,12 @@ import {
   glycemiaGramsPerLToMmol,
   PATHOLOGY_LABELS_FR,
   PHYSICAL_ACTIVITY_TYPE_LABELS_FR,
+  OBJECTIVE_LABELS_FR,
   formatActivityDurationLabel,
   formatWalkDistanceLabel,
   type PathologyCode,
   type PhysicalActivityType,
+  type ObjectiveCode,
 } from "@apa/domain";
 import type { PatientReportData } from "@apa/pdf-report";
 
@@ -71,9 +73,15 @@ export async function buildPatientReportData(
   to: Date,
   userNote?: string | null
 ): Promise<PatientReportData> {
-  const [{ data: appUser }, { data: sessions }, { data: measurements }, { data: physicalActivities }, { data: assignment }] =
+  const [{ data: appUser }, { data: profile }, { data: sessions }, { data: measurements }, { data: physicalActivities }, { data: assignment }] =
     await Promise.all([
       supabase.from("users").select("first_name, last_name").eq("id", userId).maybeSingle(),
+      // Sprint 33 (24/09/2026, instruction directe de Dr Nikiema) : « les
+      // objectifs renseignés dans le profil doivent se retrouver sur le
+      // rapport PDF » — non scopé à `pathology` (comme `physicalActivities`
+      // ci-dessous) : les objectifs du profil sont propres au patient, pas à
+      // une pathologie en particulier.
+      supabase.from("patient_profiles").select("objectives").eq("user_id", userId).maybeSingle(),
       supabase
         .from("sessions")
         .select("status, started_at, completed_at, douleur_avant, douleur_apres, ressenti")
@@ -133,6 +141,14 @@ export async function buildPatientReportData(
     }
   }
 
+  // Sprint 33 (24/09/2026) : conversion des codes bruts (`patient_profiles.objectives`)
+  // en libellés français via `OBJECTIVE_LABELS_FR` — un code non reconnu (ex.
+  // valeur historique retirée du référentiel) est silencieusement ignoré
+  // plutôt que d'afficher un code brut illisible dans le rapport.
+  const objectives = ((profile?.objectives ?? []) as string[])
+    .filter((code): code is ObjectiveCode => code in OBJECTIVE_LABELS_FR)
+    .map((code) => OBJECTIVE_LABELS_FR[code]);
+
   return {
     identity: { firstName: appUser?.first_name ?? "", lastName: appUser?.last_name ?? null },
     pathologyLabel: PATHOLOGY_LABELS_FR[pathology],
@@ -157,6 +173,7 @@ export async function buildPatientReportData(
     observations: allSessions
       .filter((s) => s.ressenti && s.ressenti.trim().length > 0)
       .map((s) => ({ date: s.started_at, text: s.ressenti as string })),
+    objectives,
     userNote: userNote ?? null,
   };
 }

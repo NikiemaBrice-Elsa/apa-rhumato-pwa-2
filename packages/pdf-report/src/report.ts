@@ -90,6 +90,12 @@ export interface PatientReportData {
   measurements: ReportMeasurementPoint[];
   physicalActivities: ReportPhysicalActivityPoint[];
   observations: ReportObservation[];
+  /** Sprint 33 (24/09/2026, instruction directe de Dr Nikiema) : objectifs
+   * déclarés par le patient dans son profil (`patient_profiles.objectives`,
+   * déjà traduits en libellés français par l'appelant — voir
+   * `apps/web/src/lib/patientReport.ts`), jamais recalculés ni interprétés
+   * ici. */
+  objectives: string[];
   userNote?: string | null;
 }
 
@@ -145,6 +151,19 @@ export function buildPatientReportPdf(data: PatientReportData): Promise<Buffer> 
     // Profil (§71).
     sectionTitle(doc, "Profil");
     doc.text(`Nom : ${fullName || "Non renseigné"}`);
+
+    // Objectifs (Sprint 33, 24/09/2026, instruction directe de Dr Nikiema :
+    // « les objectifs renseignés dans le profil doivent se retrouver sur le
+    // rapport PDF »). Libellés déjà formatés par l'appelant, jamais une
+    // interprétation ajoutée ici.
+    sectionTitle(doc, "Objectifs");
+    if (data.objectives.length === 0) {
+      doc.text("Aucun objectif renseigné dans le profil.");
+    } else {
+      for (const objective of data.objectives) {
+        doc.text(`• ${objective}`);
+      }
+    }
 
     // Pathologie sélectionnée (§71).
     sectionTitle(doc, "Pathologie sélectionnée");

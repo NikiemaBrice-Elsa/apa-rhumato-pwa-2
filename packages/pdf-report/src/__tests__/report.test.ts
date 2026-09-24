@@ -14,6 +14,7 @@ const BASE_DATA: PatientReportData = {
     { date: "2026-07-08T08:00:00Z", activityTypeLabel: "Marche", durationLabel: "30 min", distanceLabel: "2.10 km" },
   ],
   observations: [{ date: "2026-07-05T10:00:00Z", text: "Séance bien vécue." }],
+  objectives: ["Améliorer la mobilité", "Reprendre progressivement une activité physique"],
   userNote: null,
 };
 
@@ -110,5 +111,29 @@ describe("buildPatientReportPdf — section « Activités physiques » (Sprint 2
     const buffer = await buildPatientReportPdf(empty);
     const text = await extractText(buffer);
     expect(text).toMatch(/aucune activité physique/i);
+  });
+});
+
+/**
+ * Section « Objectifs » (Sprint 33, 24/09/2026) — instruction directe de
+ * Dr Nikiema : « les objectifs renseignés dans le profil doivent se
+ * retrouver sur le rapport PDF ». Testée séparément, même méthode que
+ * « Activités physiques » ci-dessus (ajoutée au-delà des dix sections
+ * imposées par le §71 d'origine, sans réécrire le test qui les liste).
+ */
+describe("buildPatientReportPdf — section « Objectifs » (Sprint 33)", () => {
+  it("liste chaque objectif renseigné dans le profil", async () => {
+    const buffer = await buildPatientReportPdf(BASE_DATA);
+    const text = await extractText(buffer);
+    expect(text).toContain("Objectifs");
+    expect(text).toContain("Améliorer la mobilité");
+    expect(text).toContain("Reprendre progressivement une activité physique");
+  });
+
+  it("indique explicitement l'absence d'objectif plutôt que de ne rien afficher", async () => {
+    const empty: PatientReportData = { ...BASE_DATA, objectives: [] };
+    const buffer = await buildPatientReportPdf(empty);
+    const text = await extractText(buffer);
+    expect(text).toMatch(/aucun objectif/i);
   });
 });
