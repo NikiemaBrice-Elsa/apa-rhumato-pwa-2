@@ -24,29 +24,36 @@ export default async function DashboardPage() {
     redirect("/connexion");
   }
 
-  const { data: appUser } = await supabase
-    .from("users")
-    .select("first_name, role")
-    .eq("id", user!.id)
-    .maybeSingle();
-
-  const { count: unreadNotifications } = await supabase
-    .from("notifications")
-    .select("id", { count: "exact", head: true })
-    .eq("user_id", user!.id)
-    .eq("read", false);
-
-  // §47, §48 : dernière souscription connue, pour la carte "Mon abonnement"
-  // (durée restante + alerte à 10 jours ou moins de l'échéance, demande du
-  // 09/09/2026). Même logique que /api/subscription : recalculée à la
-  // demande depuis `subscriptions`, jamais un statut supposé.
-  const { data: latestSubscription } = await supabase
-    .from("subscriptions")
-    .select("plan_code, status, expires_at")
-    .eq("user_id", user!.id)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  // Correctif Sprint 33 (24/09/2026, « la lenteur de l'appli est globale ») :
+  // ces 4 requêtes ne dépendent QUE de `user.id`, jamais les unes des
+  // autres — elles étaient auparavant enchaînées en série (`await` un par
+  // un), ce qui imposait 4 allers-retours réseau successifs avant de pouvoir
+  // afficher l'écran d'accueil (celui que chaque patient revoit le plus
+  // souvent). `Promise.all` les lance en parallèle : même résultat, un seul
+  // aller-retour au pire (le plus lent des quatre) au lieu de la somme des
+  // quatre.
+  const [{ data: appUser }, { count: unreadNotifications }, { data: latestSubscription }, { data: assignments }] =
+    await Promise.all([
+      supabase.from("users").select("first_name, role").eq("id", user!.id).maybeSingle(),
+      supabase.from("notifications").select("id", { count: "exact", head: true }).eq("user_id", user!.id).eq("read", false),
+      // §47, §48 : dernière souscription connue, pour la carte "Mon abonnement"
+      // (durée restante + alerte à 10 jours ou moins de l'échéance, demande du
+      // 09/09/2026). Même logique que /api/subscription : recalculée à la
+      // demande depuis `subscriptions`, jamais un statut supposé.
+      supabase
+        .from("subscriptions")
+        .select("plan_code, status, expires_at")
+        .eq("user_id", user!.id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      // §29, §58 — document « système de progression » (21/09/2026, section A) :
+      // jauge de progression vers le niveau suivant, une par pathologie suivie
+      // avec un programme validé assigné.
+      supabase.from("user_program_assignments").select("pathology, created_at").eq("user_id", user!.id).order("created_at", {
+        ascending: false,
+      }),
+    ]);
 
   const now = new Date();
   const isCurrentlyActive = latestSubscription
@@ -62,13 +69,8 @@ export default async function DashboardPage() {
   // `GET /api/statistics/progression` (apps/web/src/app/api/statistics/
   // progression/route.ts), dupliquée ici plutôt que fetchée en client pour
   // rester un Server Component pur (pas d'aller-retour réseau depuis le
-  // navigateur pour l'écran d'accueil).
-  const { data: assignments } = await supabase
-    .from("user_program_assignments")
-    .select("pathology, created_at")
-    .eq("user_id", user!.id)
-    .order("created_at", { ascending: false });
-
+  // navigateur pour l'écran d'accueil). `assignments` est chargé plus haut,
+  // en parallèle des 3 autres requêtes indépendantes (correctif Sprint 33).
   const assignedPathologies = Array.from(new Set((assignments ?? []).map((row) => row.pathology)));
   const progressionResults = (
     await Promise.all(assignedPathologies.map((pathology) => computePathologyProgressionResult(supabase, user!.id, pathology)))
