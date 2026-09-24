@@ -10,6 +10,7 @@ import {
   type DifficultyLevel,
 } from "@apa/domain";
 import { Button } from "@/components/ui/Button";
+import { PainRangeInput } from "@/components/ui/PainRangeInput";
 import { enqueueOperation } from "@/lib/offlineStorage";
 
 type Step = "pathology" | "form" | "result";
@@ -215,7 +216,7 @@ export function DeclareSessionFlow() {
         <h2 className="font-semibold text-primary-900">Avant la séance</h2>
         <div className="flex flex-col gap-1">
           <label className="font-medium text-primary-900">Douleur avant (0 = aucune, 10 = maximale)</label>
-          <input type="range" min={0} max={10} value={douleurAvant} onChange={(e) => setDouleurAvant(Number(e.target.value))} />
+          <PainRangeInput min={0} max={10} value={douleurAvant} onChange={setDouleurAvant} />
           <span className="text-sm text-primary-500">{douleurAvant}/10</span>
         </div>
         <div className="flex flex-col gap-1">
@@ -288,7 +289,7 @@ export function DeclareSessionFlow() {
             </div>
             <div className="flex flex-col gap-1">
               <label className="font-medium text-primary-900">Douleur après la séance (0-10)</label>
-              <input type="range" min={0} max={10} value={douleurApres} onChange={(e) => setDouleurApres(Number(e.target.value))} />
+              <PainRangeInput min={0} max={10} value={douleurApres} onChange={setDouleurApres} />
               <span className="text-sm text-primary-500">{douleurApres}/10</span>
             </div>
             <div className="flex flex-col gap-1">

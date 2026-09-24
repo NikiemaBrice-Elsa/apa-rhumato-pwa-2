@@ -183,6 +183,12 @@ describe("declareSessionSchema (document « séance hors application », 22/09/2
     expect(result.success).toBe(true);
   });
 
+  it("accepte une déclaration pour AUJOURD'HUI (correctif Sprint 33, 24/09/2026) — régression : le refine « pas dans le futur » comparait auparavant la fin de journée (23:59:59.999) à l'instant présent, ce qui rejetait systématiquement le cas le plus fréquent (déclarer une séance faite le jour même). Date calculée dynamiquement (jamais codée en dur) pour que ce test échoue vraiment si le bug revient, quel que soit le jour d'exécution.", () => {
+    const today = new Date().toISOString().slice(0, 10);
+    const result = declareSessionSchema.safeParse({ pathology: "ARTHROSE_GENOU", date: today, realisee: true });
+    expect(result.success).toBe(true);
+  });
+
   it("refuse un format de date invalide", () => {
     const result = declareSessionSchema.safeParse({ pathology: "ARTHROSE_GENOU", date: "20/09/2026", realisee: true });
     expect(result.success).toBe(false);

@@ -18,6 +18,7 @@ import { enqueueOperation } from "@/lib/offlineStorage";
 import { ExerciseDetails } from "@/components/exercises/ExerciseDetails";
 import { AudioCoach } from "@/components/exercises/AudioCoach";
 import { ExerciseTypePreview } from "@/components/exercises/ExerciseTypePreview";
+import { PainRangeInput } from "@/components/ui/PainRangeInput";
 import { CountdownTimer } from "@/components/activite/CountdownTimer";
 
 type Step = "pathology" | "type_exercice" | "verification" | "session" | "feedback" | "result";
@@ -336,13 +337,7 @@ export function SessionFlow({
         <h2 className="font-semibold text-primary-900">Vérification rapide</h2>
         <div className="flex flex-col gap-1">
           <label className="font-medium text-primary-900">Douleur actuelle (0 = aucune, 10 = maximale)</label>
-          <input
-            type="range"
-            min={0}
-            max={10}
-            value={douleurAvant}
-            onChange={(e) => setDouleurAvant(Number(e.target.value))}
-          />
+          <PainRangeInput min={0} max={10} value={douleurAvant} onChange={setDouleurAvant} />
           <span className="text-sm text-primary-500">{douleurAvant}/10</span>
         </div>
         <div className="flex flex-col gap-1">
@@ -504,13 +499,7 @@ export function SessionFlow({
             </div>
             <div className="flex flex-col gap-1">
               <label className="font-medium text-primary-900">Douleur après la séance (0-10)</label>
-              <input
-                type="range"
-                min={0}
-                max={10}
-                value={douleurApres}
-                onChange={(e) => setDouleurApres(Number(e.target.value))}
-              />
+              <PainRangeInput min={0} max={10} value={douleurApres} onChange={setDouleurApres} />
               <span className="text-sm text-primary-500">{douleurApres}/10</span>
             </div>
             <div className="flex flex-col gap-1">

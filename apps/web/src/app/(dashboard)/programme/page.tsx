@@ -1,7 +1,13 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { PATHOLOGY_LABELS_FR, PROFILE_LEVEL_LABELS_FR, type PathologyCode, type ProfileLevel } from "@apa/domain";
+import {
+  PATHOLOGY_LABELS_FR,
+  PROFILE_LEVEL_LABELS_FR,
+  PROFILE_LEVEL_GUIDANCE,
+  type PathologyCode,
+  type ProfileLevel,
+} from "@apa/domain";
 import { ProgramExerciseTabs, type ProgramExerciseView } from "@/components/exercises/ProgramExerciseTabs";
 
 interface ProgramExerciseWithCategory extends ProgramExerciseView {
@@ -175,7 +181,12 @@ export default async function ProgrammePage() {
 
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col gap-6 px-6 py-12">
-      <h1 className="text-2xl font-semibold text-primary-900">Mon programme</h1>
+      <div className="flex items-baseline justify-between gap-2">
+        <h1 className="text-2xl font-semibold text-primary-900">Mon programme</h1>
+        <Link href="/niveaux" className="shrink-0 text-sm text-primary-600 underline">
+          En savoir plus sur les niveaux
+        </Link>
+      </div>
 
       {rows.length === 0 ? (
         <p className="text-primary-700">
@@ -205,10 +216,23 @@ export default async function ProgrammePage() {
                   </Link>
                 </div>
                 {program ? (
-                  <p className="text-sm text-primary-700">
-                    Niveau {PROFILE_LEVEL_LABELS_FR[program.profile_level]}
-                    {program.frequency_per_week ? ` · ${program.frequency_per_week}x/semaine` : ""}
-                  </p>
+                  <>
+                    <p className="text-sm text-primary-700">
+                      Niveau {PROFILE_LEVEL_LABELS_FR[program.profile_level]}
+                      {program.frequency_per_week ? ` · ${program.frequency_per_week}x/semaine` : ""}
+                    </p>
+                    {/* Sprint 33 (24/09/2026) : repère indicatif général du
+                        niveau (PROFILE_LEVEL_GUIDANCE, déjà validé, jusqu'ici
+                        jamais affiché) — distinct de la fréquence ci-dessus,
+                        qui reste propre au programme réellement assigné. */}
+                    <p className="text-xs text-primary-500">
+                      Repère niveau {PROFILE_LEVEL_LABELS_FR[program.profile_level].toLowerCase()} :{" "}
+                      {PROFILE_LEVEL_GUIDANCE[program.profile_level].sessionsPerWeekMin}-
+                      {PROFILE_LEVEL_GUIDANCE[program.profile_level].sessionsPerWeekMax} séances/semaine,{" "}
+                      {PROFILE_LEVEL_GUIDANCE[program.profile_level].sessionDurationMinutesMin}-
+                      {PROFILE_LEVEL_GUIDANCE[program.profile_level].sessionDurationMinutesMax} min/séance.
+                    </p>
+                  </>
                 ) : (
                   <p className="text-sm text-primary-700">
                     Aucun programme ne peut encore être attribué automatiquement pour cette pathologie :

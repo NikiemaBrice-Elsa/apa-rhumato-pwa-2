@@ -177,7 +177,16 @@ export const declareSessionSchema = z
     message: "La difficulté ne peut être renseignée que si la séance a été réalisée.",
     path: ["difficulte"],
   })
-  .refine((data) => new Date(`${data.date}T23:59:59.999`).getTime() <= Date.now(), {
+  // Correctif Sprint 33 (24/09/2026) : comparait auparavant la FIN de la
+  // journée déclarée (T23:59:59.999) à l'instant présent, ce qui rejetait
+  // systématiquement une déclaration pour AUJOURD'HUI (le cas le plus
+  // fréquent) — « 23:59:59.999 aujourd'hui » est presque toujours dans le
+  // futur par rapport à « maintenant ». On compare désormais le DÉBUT de la
+  // journée déclarée : une date d'aujourd'hui ou d'hier est toujours
+  // acceptée, seule une date strictement future reste refusée. Signalé par
+  // Dr Nikiema (« certains champs sont invalides et l'enregistrement
+  // échoue » en renseignant une séance hors application).
+  .refine((data) => new Date(`${data.date}T00:00:00.000`).getTime() <= Date.now(), {
     message: "La date ne peut pas être dans le futur.",
     path: ["date"],
   });
