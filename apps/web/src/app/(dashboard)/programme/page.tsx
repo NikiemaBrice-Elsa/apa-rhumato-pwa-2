@@ -85,6 +85,16 @@ interface ProgramExerciseRow {
  * déjà supporté par `apps/web/src/app/(dashboard)/seance/page.tsx`
  * (Sprint 29/31) pour présélectionner la pathologie et passer directement à
  * l'écran pédagogique « quels exercices » avant la vérification rapide.
+ *
+ * Sprint 33 (27/09/2026, réponse de Dr Nikiema, Question 1) : encadré
+ * « Pathologie(s) en attente d'évaluation » ajouté en tête de page, pour les
+ * pathologies cochées dans le profil (`patient_profiles.main_pathologies`)
+ * mais n'ayant encore aucune ligne dans `user_program_assignments` — sans
+ * cet encadré, rien ne signalait qu'une pathologie nouvellement déclarée
+ * dans le profil restait invisible partout ailleurs tant qu'elle n'avait pas
+ * été évaluée (`/evaluation`). Chaque pathologie listée a son propre bouton
+ * « Faire l'évaluation » (`/evaluation?pathology=...`) qui saute directement
+ * à son questionnaire de dépistage.
  */
 export default async function ProgrammePage() {
   const supabase = createSupabaseServerClient();
@@ -96,11 +106,19 @@ export default async function ProgrammePage() {
     redirect("/connexion");
   }
 
-  const { data: assignments } = await supabase
-    .from("user_program_assignments")
-    .select("pathology, program_id, status, created_at")
-    .eq("user_id", user!.id)
-    .order("created_at", { ascending: false });
+  const [{ data: assignments }, { data: profile }] = await Promise.all([
+    supabase
+      .from("user_program_assignments")
+      .select("pathology, program_id, status, created_at")
+      .eq("user_id", user!.id)
+      .order("created_at", { ascending: false }),
+    // Sprint 33 (27/09/2026, réponse de Dr Nikiema, Question 1) : « encadré
+    // Pathologie(s) en attente d'évaluation » — pathologies cochées dans le
+    // profil mais n'ayant encore aucun dépistage (`user_program_assignments`,
+    // voir le commentaire au-dessus de ce composant pour l'explication
+    // complète de cette séparation).
+    supabase.from("patient_profiles").select("main_pathologies").eq("user_id", user!.id).maybeSingle(),
+  ]);
 
   const latestByPathology = new Map<PathologyCode, AssignmentRow>();
   for (const row of (assignments ?? []) as AssignmentRow[]) {
@@ -124,6 +142,16 @@ export default async function ProgrammePage() {
   }
 
   const rows = Array.from(latestByPathology.values());
+
+  // Sprint 33 (27/09/2026, réponse de Dr Nikiema, Question 1) : pathologies
+  // cochées dans le profil (`patient_profiles.main_pathologies`) qui n'ont
+  // encore aucun dépistage (absentes de `latestByPathology`, donc jamais
+  // « suivies » — voir le commentaire au-dessus de ce composant). L'ordre du
+  // profil est conservé tel quel, sans tri ni dédoublonnage supplémentaire
+  // au-delà du `Set` déjà imposé par `mainPathologies` côté formulaire.
+  const pendingEvaluationPathologies = ((profile?.main_pathologies ?? []) as PathologyCode[]).filter(
+    (code) => !latestByPathology.has(code)
+  );
 
   // Exercices réels du programme validé, par pathologie (mêmes champs que
   // ExerciseDetails.tsx, déjà utilisé pour l'écran de séance en direct).
@@ -181,12 +209,31 @@ export default async function ProgrammePage() {
 
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col gap-6 px-6 py-12">
-      <div className="flex items-baseline justify-between gap-2">
-        <h1 className="text-2xl font-semibold text-primary-900">Mon programme</h1>
-        <Link href="/niveaux" className="shrink-0 text-sm text-primary-600 underline">
-          En savoir plus sur les niveaux
-        </Link>
-      </div>
+      <h1 className="text-2xl font-semibold text-primary-900">Mon programme</h1>
+
+      {pendingEvaluationPathologies.length > 0 && (
+        <div className="flex flex-col gap-2 rounded-xl border border-orange-300 bg-orange-50 p-4">
+          <p className="font-medium text-orange-900">Pathologie(s) en attente d&apos;évaluation</p>
+          <p className="text-sm text-orange-800">
+            Ces pathologies sont cochées dans votre profil mais n&apos;ont pas encore été évaluées : elles
+            n&apos;apparaîtront ici, ni au démarrage d&apos;une séance, qu&apos;une fois l&apos;évaluation de
+            sécurité complétée.
+          </p>
+          <ul className="flex flex-col gap-2">
+            {pendingEvaluationPathologies.map((code) => (
+              <li key={code} className="flex items-center justify-between gap-3">
+                <span className="text-sm font-medium text-orange-900">{PATHOLOGY_LABELS_FR[code]}</span>
+                <Link
+                  href={`/evaluation?pathology=${code}`}
+                  className="shrink-0 rounded-lg bg-orange-700 px-3 py-1.5 text-xs font-medium text-white"
+                >
+                  Faire l&apos;évaluation
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {rows.length === 0 ? (
         <p className="text-primary-700">
@@ -221,17 +268,35 @@ export default async function ProgrammePage() {
                       Niveau {PROFILE_LEVEL_LABELS_FR[program.profile_level]}
                       {program.frequency_per_week ? ` · ${program.frequency_per_week}x/semaine` : ""}
                     </p>
-                    {/* Sprint 33 (24/09/2026) : repère indicatif général du
-                        niveau (PROFILE_LEVEL_GUIDANCE, déjà validé, jusqu'ici
-                        jamais affiché) — distinct de la fréquence ci-dessus,
-                        qui reste propre au programme réellement assigné. */}
-                    <p className="text-xs text-primary-500">
-                      Repère niveau {PROFILE_LEVEL_LABELS_FR[program.profile_level].toLowerCase()} :{" "}
-                      {PROFILE_LEVEL_GUIDANCE[program.profile_level].sessionsPerWeekMin}-
-                      {PROFILE_LEVEL_GUIDANCE[program.profile_level].sessionsPerWeekMax} séances/semaine,{" "}
-                      {PROFILE_LEVEL_GUIDANCE[program.profile_level].sessionDurationMinutesMin}-
-                      {PROFILE_LEVEL_GUIDANCE[program.profile_level].sessionDurationMinutesMax} min/séance.
-                    </p>
+                    {/* Sprint 33 (24/09/2026), suite au message direct de
+                        Dr Nikiema : remplace le lien « En savoir plus sur les
+                        niveaux » (vers /niveaux) par une fenêtre affichée
+                        directement ici, qui explique le niveau ACTUEL de
+                        cette pathologie (repère déjà validé,
+                        PROFILE_LEVEL_GUIDANCE) et invite à la progression —
+                        même destination que le message équivalent de la
+                        jauge du tableau de bord (ProgressionGaugeCard.tsx),
+                        pour ne jamais dupliquer les critères de passage à
+                        deux endroits différents. */}
+                    <div className="mt-2 flex flex-col gap-1 rounded-lg bg-primary-50 p-3">
+                      <p className="text-sm font-medium text-primary-900">
+                        Votre niveau actuel : {PROFILE_LEVEL_LABELS_FR[program.profile_level]}
+                      </p>
+                      <p className="text-sm text-primary-700">
+                        {PROFILE_LEVEL_GUIDANCE[program.profile_level].sessionsPerWeekMin}-
+                        {PROFILE_LEVEL_GUIDANCE[program.profile_level].sessionsPerWeekMax} séances par semaine,{" "}
+                        {PROFILE_LEVEL_GUIDANCE[program.profile_level].sessionDurationMinutesMin}-
+                        {PROFILE_LEVEL_GUIDANCE[program.profile_level].sessionDurationMinutesMax} minutes par séance
+                        {program.frequency_per_week
+                          ? ` (votre programme actuel : ${program.frequency_per_week}x/semaine)`
+                          : ""}
+                        . Vous n&apos;avez pas besoin d&apos;atteindre systématiquement la borne haute : la
+                        progression se fait à votre rythme.
+                      </p>
+                      <Link href="/statistiques" className="text-sm font-medium text-primary-700 underline">
+                        Atteignez vos objectifs et passez au niveau supérieur
+                      </Link>
+                    </div>
                   </>
                 ) : (
                   <p className="text-sm text-primary-700">

@@ -38,7 +38,16 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: "Certains champs sont invalides.", fieldErrors }, { status: 422 });
   }
 
-  const { pathology, douleurAvant, fatigueAvant, etatGeneralAvant, plannedSessionId } = parsed.data;
+  const {
+    pathology,
+    douleurAvant,
+    fatigueAvant,
+    etatGeneralAvant,
+    gonflementArticulaire,
+    fievre,
+    symptomeInhabituel,
+    plannedSessionId,
+  } = parsed.data;
 
   // Réf. B11 (31/08/2026) : si la séance démarre depuis la « séance du
   // jour », vérifier que cette ligne planifiée appartient bien à
@@ -91,6 +100,15 @@ export async function POST(request: Request) {
       douleur_avant: douleurAvant ?? null,
       fatigue_avant: fatigueAvant ?? null,
       etat_general_avant: etatGeneralAvant ?? null,
+      // Sprint 33 (27/09/2026, réponse de Dr Nikiema, Question 3) : signaux
+      // déclarés à l'étape « Vérification rapide », simplement enregistrés
+      // pour la traçabilité (§65) — ni vérifiés ni bloquants côté serveur,
+      // l'avertissement et le choix du patient (continuer ou non) ont déjà
+      // eu lieu côté client avant cet appel (réponse (a) : le patient garde
+      // la responsabilité de sa décision, voir shouldWarnBeforeSession).
+      gonflement_articulaire_avant: gonflementArticulaire,
+      fievre_avant: fievre,
+      symptome_inhabituel_avant: symptomeInhabituel,
       planned_session_id: linkedPlannedSessionId,
     })
     .select("id, status, started_at")

@@ -33,6 +33,16 @@ export interface Session {
   douleurAvant?: number | null;
   fatigueAvant?: number | null;
   etatGeneralAvant?: string | null;
+  /** Sprint 33 (27/09/2026, réponse directe de Dr Nikiema, Question 3) :
+   * signaux de sécurité déclarés par le patient juste avant de démarrer une
+   * séance, en plus de la douleur — voir `shouldWarnBeforeSession`
+   * ci-dessous. Toujours `false` pour une séance déclarée a posteriori
+   * (`declareSessionSchema`), qui ne collecte pas ces champs (la question ne
+   * porte que sur l'instant précédant un démarrage réel, pas sur une séance
+   * déjà terminée). */
+  gonflementArticulaireAvant?: boolean | null;
+  fievreAvant?: boolean | null;
+  symptomeInhabituelAvant?: boolean | null;
   realisee?: boolean | null;
   difficulte?: DifficultyLevel | null;
   douleurApres?: number | null;
@@ -124,6 +134,56 @@ export const PROGRESSION_FATIGUE_VIGILANCE_THRESHOLD = 7;
  * ici à la douleur ressentie APRÈS une séance plutôt qu'au dépistage.
  */
 export const PROGRESSION_PAIN_CRITICAL_THRESHOLD = 7;
+
+/**
+ * §28 étape 2 « Vérification rapide », Sprint 33 (27/09/2026). Dr Nikiema a
+ * testé l'application en simulant une douleur à 9/10 juste avant de démarrer
+ * une séance : rien ne l'en empêchait ni ne l'avertissait — un vrai manque,
+ * confirmé après vérification complète du code (aucun seuil n'existait sur
+ * la douleur AVANT séance, contrairement à `EXERCISE_PAIN_TOLERABLE_THRESHOLD`
+ * et `PROGRESSION_PAIN_CRITICAL_THRESHOLD` ci-dessus, qui ne portent que sur
+ * la douleur APRÈS séance). Document Questions/Réponses envoyé le 27/09/2026,
+ * Question 3 : réponse (a) — avertissement avec confirmation obligatoire
+ * (jamais un blocage strict, le patient garde la responsabilité de sa
+ * décision), seuil « sup ou = 5 », identique pour les 6 pathologies. Réponse
+ * complémentaire : en plus de la douleur, ajouter gonflement articulaire,
+ * fièvre et symptôme inhabituel comme signaux déclencheurs à part entière
+ * (chacun suffit seul, aucun n'est requis en plus des autres).
+ */
+export const SESSION_PRE_ALERT_PAIN_THRESHOLD = 5;
+
+/** Signaux collectés à l'étape « Vérification rapide », juste avant de
+ * démarrer une séance — voir `shouldWarnBeforeSession` ci-dessous. */
+export interface SessionPreAlertSignals {
+  douleurAvant?: number | null;
+  gonflementArticulaire?: boolean;
+  fievre?: boolean;
+  symptomeInhabituel?: boolean;
+}
+
+/**
+ * §28 étape 2, Sprint 33 (27/09/2026, réponse de Dr Nikiema, Question 3) :
+ * `true` si au moins un des signaux déclenche l'avertissement avant séance —
+ * douleur >= `SESSION_PRE_ALERT_PAIN_THRESHOLD`, OU gonflement articulaire,
+ * OU fièvre, OU symptôme inhabituel (chacun suffit seul). Fonction pure : ne
+ * décide jamais de bloquer la séance elle-même (réponse (a) : avertissement
+ * réversible, jamais un blocage strict) — l'appelant reste responsable
+ * d'afficher le message et de laisser le patient choisir.
+ */
+export function shouldWarnBeforeSession(signals: SessionPreAlertSignals): boolean {
+  return (
+    (typeof signals.douleurAvant === "number" && signals.douleurAvant >= SESSION_PRE_ALERT_PAIN_THRESHOLD) ||
+    Boolean(signals.gonflementArticulaire) ||
+    Boolean(signals.fievre) ||
+    Boolean(signals.symptomeInhabituel)
+  );
+}
+
+/** Texte affiché au patient quand `shouldWarnBeforeSession` renvoie `true` —
+ * verbatim unique, jamais reformulé ailleurs (même principe que
+ * `MEDICAL_DISCLAIMER`, packages/pdf-report/src/report.ts). */
+export const SESSION_PRE_ALERT_MESSAGE =
+  "Vous avez signalé une douleur élevée, un gonflement articulaire, de la fièvre ou un symptôme inhabituel. Nous vous recommandons de ne pas faire cette séance et de prendre un avis médical si ce signe est inhabituel, persiste ou s'aggrave.";
 
 /**
  * Classification synthétique du signal de la dernière séance (§29, §58,

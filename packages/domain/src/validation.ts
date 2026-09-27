@@ -104,6 +104,16 @@ export const startSessionSchema = z.object({
   douleurAvant: z.number().int().min(0).max(10).optional(),
   fatigueAvant: z.number().int().min(0).max(10).optional(),
   etatGeneralAvant: z.string().max(500).optional(),
+  // Sprint 33 (27/09/2026, réponse de Dr Nikiema, Question 3) : signaux de
+  // sécurité complémentaires à la douleur, voir `shouldWarnBeforeSession`
+  // (packages/domain/src/sessions.ts). Toujours envoyés par le client
+  // (jamais absents), donc un simple booléen par défaut `false` suffit —
+  // pas de distinction « non renseigné » vs « non » à faire ici, contrairement
+  // à `douleurAvant` (curseur, valeur toujours présente aussi en pratique
+  // mais gardé optionnel pour ne pas changer un contrat déjà existant).
+  gonflementArticulaire: z.boolean().default(false),
+  fievre: z.boolean().default(false),
+  symptomeInhabituel: z.boolean().default(false),
 });
 
 export type StartSessionInput = z.infer<typeof startSessionSchema>;

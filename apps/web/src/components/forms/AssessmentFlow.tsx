@@ -43,10 +43,23 @@ const STATUS_STYLES: Record<SafetyStatus, string> = {
   pending_validation: "bg-primary-50 border-primary-300 text-primary-900",
 };
 
-export function AssessmentFlow() {
+interface AssessmentFlowProps {
+  /**
+   * Sprint 33 (27/09/2026, réponse de Dr Nikiema, Question 1) : quand
+   * l'évaluation est ouverte depuis le bouton « Faire l'évaluation » d'une
+   * pathologie précise (encadré « Pathologie(s) en attente d'évaluation »,
+   * Mon programme / tableau de bord), on saute directement à l'étape
+   * « screening » pour CETTE pathologie — sans repasser par l'écran de choix
+   * libre des 6 pathologies (réponse de Question 2 : cet écran de choix
+   * libre reste inchangé quand il est ouvert autrement, ex. depuis le menu).
+   */
+  initialPathology?: PathologyCode;
+}
+
+export function AssessmentFlow({ initialPathology }: AssessmentFlowProps = {}) {
   const router = useRouter();
-  const [step, setStep] = useState<Step>("pathology");
-  const [pathology, setPathology] = useState<PathologyCode | null>(null);
+  const [step, setStep] = useState<Step>(initialPathology ? "screening" : "pathology");
+  const [pathology, setPathology] = useState<PathologyCode | null>(initialPathology ?? null);
   const [responses, setResponses] = useState<Record<string, ResponseValue>>({});
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);

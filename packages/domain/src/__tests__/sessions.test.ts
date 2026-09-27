@@ -9,6 +9,8 @@ import {
   PROGRESSION_PAIN_CRITICAL_THRESHOLD,
   computeSessionCompletionLevel,
   SESSION_COMPLETION_CONTENT_THRESHOLD,
+  shouldWarnBeforeSession,
+  SESSION_PRE_ALERT_PAIN_THRESHOLD,
   type Session,
 } from "../sessions";
 
@@ -265,5 +267,49 @@ describe("computeSessionCompletionLevel (réf. B13, 31/08/2026)", () => {
 
   it("partial si aucun exercice coché", () => {
     expect(computeSessionCompletionLevel(0, 5)).toBe("partial");
+  });
+});
+
+/**
+ * §28 étape 2, Sprint 33 (27/09/2026, réponse de Dr Nikiema, Question 3) :
+ * avertissement avant séance — douleur >= seuil, OU gonflement articulaire,
+ * OU fièvre, OU symptôme inhabituel, chacun suffisant seul.
+ */
+describe("shouldWarnBeforeSession (Sprint 33, 27/09/2026, réponse Question 3)", () => {
+  it("seuil retenu : 5/10 (réponse explicite de Dr Nikiema, identique pour les 6 pathologies)", () => {
+    expect(SESSION_PRE_ALERT_PAIN_THRESHOLD).toBe(5);
+  });
+
+  it("aucun avertissement sans aucun signal", () => {
+    expect(shouldWarnBeforeSession({ douleurAvant: 0 })).toBe(false);
+  });
+
+  it("aucun avertissement juste sous le seuil de douleur", () => {
+    expect(shouldWarnBeforeSession({ douleurAvant: 4 })).toBe(false);
+  });
+
+  it("avertissement dès que la douleur atteint le seuil (>=, pas >)", () => {
+    expect(shouldWarnBeforeSession({ douleurAvant: 5 })).toBe(true);
+  });
+
+  it("avertissement au-delà du seuil (ex. 9/10, cas testé par Dr Nikiema)", () => {
+    expect(shouldWarnBeforeSession({ douleurAvant: 9 })).toBe(true);
+  });
+
+  it("douleurAvant absent (undefined/null) ne déclenche rien à lui seul", () => {
+    expect(shouldWarnBeforeSession({})).toBe(false);
+    expect(shouldWarnBeforeSession({ douleurAvant: null })).toBe(false);
+  });
+
+  it("gonflement articulaire seul suffit, même avec une douleur nulle", () => {
+    expect(shouldWarnBeforeSession({ douleurAvant: 0, gonflementArticulaire: true })).toBe(true);
+  });
+
+  it("fièvre seule suffit", () => {
+    expect(shouldWarnBeforeSession({ douleurAvant: 0, fievre: true })).toBe(true);
+  });
+
+  it("symptôme inhabituel seul suffit", () => {
+    expect(shouldWarnBeforeSession({ douleurAvant: 0, symptomeInhabituel: true })).toBe(true);
   });
 });

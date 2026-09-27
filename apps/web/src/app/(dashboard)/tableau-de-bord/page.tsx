@@ -1,6 +1,11 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { isSubscriptionCurrentlyActive, getSubscriptionDaysRemaining } from "@apa/domain";
+import {
+  isSubscriptionCurrentlyActive,
+  getSubscriptionDaysRemaining,
+  PATHOLOGY_LABELS_FR,
+  type PathologyCode,
+} from "@apa/domain";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { computePathologyProgressionResult } from "@/lib/progression";
 import { PlannedSessionCard } from "@/components/dashboard/PlannedSessionCard";
@@ -32,28 +37,37 @@ export default async function DashboardPage() {
   // souvent). `Promise.all` les lance en parallèle : même résultat, un seul
   // aller-retour au pire (le plus lent des quatre) au lieu de la somme des
   // quatre.
-  const [{ data: appUser }, { count: unreadNotifications }, { data: latestSubscription }, { data: assignments }] =
-    await Promise.all([
-      supabase.from("users").select("first_name, role").eq("id", user!.id).maybeSingle(),
-      supabase.from("notifications").select("id", { count: "exact", head: true }).eq("user_id", user!.id).eq("read", false),
-      // §47, §48 : dernière souscription connue, pour la carte "Mon abonnement"
-      // (durée restante + alerte à 10 jours ou moins de l'échéance, demande du
-      // 09/09/2026). Même logique que /api/subscription : recalculée à la
-      // demande depuis `subscriptions`, jamais un statut supposé.
-      supabase
-        .from("subscriptions")
-        .select("plan_code, status, expires_at")
-        .eq("user_id", user!.id)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle(),
-      // §29, §58 — document « système de progression » (21/09/2026, section A) :
-      // jauge de progression vers le niveau suivant, une par pathologie suivie
-      // avec un programme validé assigné.
-      supabase.from("user_program_assignments").select("pathology, created_at").eq("user_id", user!.id).order("created_at", {
-        ascending: false,
-      }),
-    ]);
+  const [
+    { data: appUser },
+    { count: unreadNotifications },
+    { data: latestSubscription },
+    { data: assignments },
+    { data: profile },
+  ] = await Promise.all([
+    supabase.from("users").select("first_name, role").eq("id", user!.id).maybeSingle(),
+    supabase.from("notifications").select("id", { count: "exact", head: true }).eq("user_id", user!.id).eq("read", false),
+    // §47, §48 : dernière souscription connue, pour la carte "Mon abonnement"
+    // (durée restante + alerte à 10 jours ou moins de l'échéance, demande du
+    // 09/09/2026). Même logique que /api/subscription : recalculée à la
+    // demande depuis `subscriptions`, jamais un statut supposé.
+    supabase
+      .from("subscriptions")
+      .select("plan_code, status, expires_at")
+      .eq("user_id", user!.id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    // §29, §58 — document « système de progression » (21/09/2026, section A) :
+    // jauge de progression vers le niveau suivant, une par pathologie suivie
+    // avec un programme validé assigné.
+    supabase.from("user_program_assignments").select("pathology, created_at").eq("user_id", user!.id).order("created_at", {
+      ascending: false,
+    }),
+    // Sprint 33 (27/09/2026, réponse de Dr Nikiema, Question 1) : mêmes
+    // pathologies en attente d'évaluation qu'affichées dans « Mon programme »
+    // — voir le calcul de `pendingEvaluationPathologies` plus bas.
+    supabase.from("patient_profiles").select("main_pathologies").eq("user_id", user!.id).maybeSingle(),
+  ]);
 
   const now = new Date();
   const isCurrentlyActive = latestSubscription
@@ -76,6 +90,15 @@ export default async function DashboardPage() {
     await Promise.all(assignedPathologies.map((pathology) => computePathologyProgressionResult(supabase, user!.id, pathology)))
   ).filter((r): r is NonNullable<typeof r> => r !== null);
 
+  // Sprint 33 (27/09/2026, réponse de Dr Nikiema, Question 1) : mêmes
+  // pathologies en attente d'évaluation qu'affichées dans « Mon programme »
+  // (apps/web/src/app/(dashboard)/programme/page.tsx) — pathologies cochées
+  // dans le profil sans encore aucune ligne dans `user_program_assignments`.
+  const assignedPathologySet = new Set(assignedPathologies);
+  const pendingEvaluationPathologies = ((profile?.main_pathologies ?? []) as PathologyCode[]).filter(
+    (code) => !assignedPathologySet.has(code)
+  );
+
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col gap-4 px-6 py-12">
       <h1 className="text-2xl font-semibold text-primary-900">
@@ -91,6 +114,27 @@ export default async function DashboardPage() {
         daysRemaining={daysRemaining}
         expiresAt={latestSubscription?.expires_at ?? null}
       />
+      {pendingEvaluationPathologies.length > 0 && (
+        <div className="flex flex-col gap-2 rounded-xl border border-orange-300 bg-orange-50 p-4">
+          <p className="font-medium text-orange-900">Pathologie(s) en attente d&apos;évaluation</p>
+          <p className="text-sm text-orange-800">
+            Ces pathologies sont cochées dans votre profil mais n&apos;ont pas encore été évaluées.
+          </p>
+          <ul className="flex flex-col gap-2">
+            {pendingEvaluationPathologies.map((code) => (
+              <li key={code} className="flex items-center justify-between gap-3">
+                <span className="text-sm font-medium text-orange-900">{PATHOLOGY_LABELS_FR[code]}</span>
+                <Link
+                  href={`/evaluation?pathology=${code}`}
+                  className="shrink-0 rounded-lg bg-orange-700 px-3 py-1.5 text-xs font-medium text-white"
+                >
+                  Faire l&apos;évaluation
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       <PlannedSessionCard />
       <ProgressionGaugeCard results={progressionResults} />
       <Link

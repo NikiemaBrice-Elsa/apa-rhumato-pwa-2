@@ -8,6 +8,8 @@ import {
   DIFFICULTY_LABELS_FR,
   EXERCISE_PHASES,
   EXERCISE_PHASE_LABELS_FR,
+  shouldWarnBeforeSession,
+  SESSION_PRE_ALERT_MESSAGE,
   type PathologyCode,
   type DifficultyLevel,
   type ExercisePhase,
@@ -21,7 +23,7 @@ import { ExerciseTypePreview } from "@/components/exercises/ExerciseTypePreview"
 import { PainRangeInput } from "@/components/ui/PainRangeInput";
 import { CountdownTimer } from "@/components/activite/CountdownTimer";
 
-type Step = "pathology" | "type_exercice" | "verification" | "session" | "feedback" | "result";
+type Step = "pathology" | "type_exercice" | "verification" | "alerte_securite" | "session" | "feedback" | "result";
 
 interface SessionExerciseView {
   exerciseId: string;
@@ -93,6 +95,14 @@ interface SessionExerciseView {
  * activités libres marche/vélo/aérobie, Sprint 25) mélangerait deux
  * historiques différents sans qu'aucune réponse de Dr Nikiema ne demande
  * cette fusion ; `onComplete`/`onSessionComplete` sont donc des no-op ici.
+ *
+ * Sprint 33 (27/09/2026, réponse de Dr Nikiema, Question 3) : nouvelle étape
+ * « alerte_securite », intercalée entre « Vérification rapide » et le
+ * démarrage réel de la séance, quand `shouldWarnBeforeSession` (douleur >= 5,
+ * gonflement articulaire, fièvre ou symptôme inhabituel) renvoie `true`.
+ * Avertissement réversible, jamais un blocage strict : le patient choisit
+ * « Annuler » (retour à « Vérification rapide », aucune séance démarrée) ou
+ * « Je comprends et je continue quand même » (démarre normalement).
  */
 function allExercisesClassified(exercises: SessionExerciseView[]): boolean {
   return exercises.length > 0 && exercises.every((ex) => ex.phase != null);
@@ -148,6 +158,12 @@ export function SessionFlow({
   const [douleurAvant, setDouleurAvant] = useState(0);
   const [fatigueAvant, setFatigueAvant] = useState(0);
   const [etatGeneralAvant, setEtatGeneralAvant] = useState("");
+  // Sprint 33 (27/09/2026, réponse de Dr Nikiema, Question 3) : signaux
+  // complémentaires à la douleur, collectés à la même étape « Vérification
+  // rapide » — voir `shouldWarnBeforeSession` (packages/domain/src/sessions.ts).
+  const [gonflementArticulaire, setGonflementArticulaire] = useState(false);
+  const [fievre, setFievre] = useState(false);
+  const [symptomeInhabituel, setSymptomeInhabituel] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [sessionIsLocal, setSessionIsLocal] = useState(false);
   const [programAssigned, setProgramAssigned] = useState(false);
@@ -172,6 +188,9 @@ export function SessionFlow({
       douleurAvant,
       fatigueAvant,
       etatGeneralAvant: etatGeneralAvant || undefined,
+      gonflementArticulaire,
+      fievre,
+      symptomeInhabituel,
       plannedSessionId,
     };
     const op = enqueueOperation({ id: crypto.randomUUID(), entityType: "session", method: "POST", url: "/api/sessions", body });
@@ -202,6 +221,9 @@ export function SessionFlow({
           douleurAvant,
           fatigueAvant,
           etatGeneralAvant: etatGeneralAvant || undefined,
+          gonflementArticulaire,
+          fievre,
+          symptomeInhabituel,
           plannedSessionId,
         }),
       });
@@ -222,6 +244,20 @@ export function SessionFlow({
     } finally {
       setSubmitting(false);
     }
+  }
+
+  // Sprint 33 (27/09/2026, réponse de Dr Nikiema, Question 3) : déclenché par
+  // le bouton « Démarrer la séance » de l'étape « Vérification rapide ».
+  // Avertissement réversible (réponse (a), jamais un blocage strict) : si
+  // `shouldWarnBeforeSession` renvoie `true`, on affiche le message et on
+  // laisse le patient choisir (« Annuler » ou « Je comprends et je continue
+  // quand même ») avant d'appeler réellement `startSession`.
+  function handleDemarrerClick() {
+    if (shouldWarnBeforeSession({ douleurAvant, gonflementArticulaire, fievre, symptomeInhabituel })) {
+      setStep("alerte_securite");
+      return;
+    }
+    startSession();
   }
 
   function toggleExerciseCompleted(exerciseId: string) {
@@ -361,14 +397,64 @@ export function SessionFlow({
           />
         </div>
 
+        {/* Sprint 33 (27/09/2026, réponse de Dr Nikiema, Question 3) : signaux
+            complémentaires à la douleur, chacun suffisant seul pour
+            déclencher l'avertissement (voir handleDemarrerClick). */}
+        <div className="flex flex-col gap-2">
+          <label className="flex items-center gap-2 text-sm text-primary-900">
+            <input
+              type="checkbox"
+              checked={gonflementArticulaire}
+              onChange={(e) => setGonflementArticulaire(e.target.checked)}
+            />
+            Gonflement articulaire
+          </label>
+          <label className="flex items-center gap-2 text-sm text-primary-900">
+            <input type="checkbox" checked={fievre} onChange={(e) => setFievre(e.target.checked)} />
+            Fièvre
+          </label>
+          <label className="flex items-center gap-2 text-sm text-primary-900">
+            <input
+              type="checkbox"
+              checked={symptomeInhabituel}
+              onChange={(e) => setSymptomeInhabituel(e.target.checked)}
+            />
+            Symptôme inhabituel
+          </label>
+        </div>
+
         {error && (
           <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
             {error}
           </p>
         )}
 
-        <Button type="button" onClick={startSession} disabled={submitting}>
+        <Button type="button" onClick={handleDemarrerClick} disabled={submitting}>
           {submitting ? "Démarrage…" : "Démarrer la séance"}
+        </Button>
+      </div>
+    );
+  }
+
+  if (step === "alerte_securite" && pathology) {
+    return (
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-3 rounded-xl border border-red-300 bg-red-50 p-4">
+          <h2 className="font-semibold text-red-900">Avant de continuer</h2>
+          <p className="text-red-900">{SESSION_PRE_ALERT_MESSAGE}</p>
+        </div>
+
+        {error && (
+          <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
+            {error}
+          </p>
+        )}
+
+        <Button type="button" variant="secondary" onClick={() => setStep("verification")} disabled={submitting}>
+          Annuler
+        </Button>
+        <Button type="button" onClick={startSession} disabled={submitting}>
+          {submitting ? "Démarrage…" : "Je comprends et je continue quand même"}
         </Button>
       </div>
     );
