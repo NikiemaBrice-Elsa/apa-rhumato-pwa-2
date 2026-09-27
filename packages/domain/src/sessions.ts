@@ -186,6 +186,28 @@ export const SESSION_PRE_ALERT_MESSAGE =
   "Vous avez signalé une douleur élevée, un gonflement articulaire, de la fièvre ou un symptôme inhabituel. Nous vous recommandons de ne pas faire cette séance et de prendre un avis médical si ce signe est inhabituel, persiste ou s'aggrave.";
 
 /**
+ * Sprint 33 (27/09/2026, instruction directe de Dr Nikiema) : « en cas de
+ * séance non réalisée liée à une douleur élevée ou à un autre critère, ce
+ * critère doit s'afficher sur le tableau de bord » — libellés FR de chaque
+ * signal individuel présent, dans un ordre fixe (douleur, puis les trois
+ * booléens dans l'ordre où ils apparaissent à l'écran), pour construire le
+ * rappel affiché tant qu'aucune nouvelle tentative de séance n'a eu lieu
+ * (voir `session_pre_alert_cancellations`, infra/db/migrations/0026_...sql).
+ * Fonction pure, aucune décision : se contente de décrire ce qui a été
+ * déclaré, jamais une interprétation ajoutée (§57, §59).
+ */
+export function describeSessionPreAlertSignals(signals: SessionPreAlertSignals): string[] {
+  const reasons: string[] = [];
+  if (typeof signals.douleurAvant === "number" && signals.douleurAvant >= SESSION_PRE_ALERT_PAIN_THRESHOLD) {
+    reasons.push(`douleur élevée (${signals.douleurAvant}/10)`);
+  }
+  if (signals.gonflementArticulaire) reasons.push("gonflement articulaire");
+  if (signals.fievre) reasons.push("fièvre");
+  if (signals.symptomeInhabituel) reasons.push("symptôme inhabituel");
+  return reasons;
+}
+
+/**
  * Classification synthétique du signal de la dernière séance (§29, §58,
  * §70 ; réponses du 30/08/2026 à `QUESTIONS_PROGRESSION_REGRESSION_
  * 20260823.docx`) :

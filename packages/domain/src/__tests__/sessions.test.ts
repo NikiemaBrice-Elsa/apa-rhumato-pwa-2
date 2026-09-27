@@ -11,6 +11,7 @@ import {
   SESSION_COMPLETION_CONTENT_THRESHOLD,
   shouldWarnBeforeSession,
   SESSION_PRE_ALERT_PAIN_THRESHOLD,
+  describeSessionPreAlertSignals,
   type Session,
 } from "../sessions";
 
@@ -311,5 +312,38 @@ describe("shouldWarnBeforeSession (Sprint 33, 27/09/2026, réponse Question 3)",
 
   it("symptôme inhabituel seul suffit", () => {
     expect(shouldWarnBeforeSession({ douleurAvant: 0, symptomeInhabituel: true })).toBe(true);
+  });
+});
+
+describe("describeSessionPreAlertSignals (Sprint 33, 27/09/2026, rappel tableau de bord)", () => {
+  it("aucun signal → aucune raison", () => {
+    expect(describeSessionPreAlertSignals({ douleurAvant: 0 })).toEqual([]);
+    expect(describeSessionPreAlertSignals({})).toEqual([]);
+  });
+
+  it("douleur sous le seuil → pas mentionnée", () => {
+    expect(describeSessionPreAlertSignals({ douleurAvant: 4 })).toEqual([]);
+  });
+
+  it("douleur au seuil ou au-delà → mentionnée avec la valeur exacte", () => {
+    expect(describeSessionPreAlertSignals({ douleurAvant: 5 })).toEqual(["douleur élevée (5/10)"]);
+    expect(describeSessionPreAlertSignals({ douleurAvant: 9 })).toEqual(["douleur élevée (9/10)"]);
+  });
+
+  it("chaque signal booléen est listé indépendamment", () => {
+    expect(describeSessionPreAlertSignals({ gonflementArticulaire: true })).toEqual(["gonflement articulaire"]);
+    expect(describeSessionPreAlertSignals({ fievre: true })).toEqual(["fièvre"]);
+    expect(describeSessionPreAlertSignals({ symptomeInhabituel: true })).toEqual(["symptôme inhabituel"]);
+  });
+
+  it("plusieurs signaux cumulés sont tous listés, dans l'ordre douleur puis gonflement/fièvre/symptôme", () => {
+    expect(
+      describeSessionPreAlertSignals({
+        douleurAvant: 8,
+        gonflementArticulaire: true,
+        fievre: true,
+        symptomeInhabituel: true,
+      })
+    ).toEqual(["douleur élevée (8/10)", "gonflement articulaire", "fièvre", "symptôme inhabituel"]);
   });
 });

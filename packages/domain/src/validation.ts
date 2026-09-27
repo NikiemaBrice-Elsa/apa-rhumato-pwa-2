@@ -118,6 +118,32 @@ export const startSessionSchema = z.object({
 
 export type StartSessionInput = z.infer<typeof startSessionSchema>;
 
+/**
+ * Sprint 33 (27/09/2026, instruction directe de Dr Nikiema) : le patient a
+ * vu l'avertissement avant séance (`shouldWarnBeforeSession`,
+ * packages/domain/src/sessions.ts) et a choisi « Annuler » — aucune séance
+ * n'est créée dans `sessions`, mais l'événement doit rester tracé le temps
+ * d'afficher un rappel sur le tableau de bord jusqu'à la prochaine
+ * tentative. Mêmes signaux que `startSessionSchema`, sans `plannedSessionId`
+ * (une annulation ne se rattache jamais à une séance planifiée).
+ */
+export const sessionPreAlertCancellationSchema = z.object({
+  pathology: z.enum([
+    "LOMBALGIE_COMMUNE",
+    "ARTHROSE_GENOU",
+    "ARTHROSE_HANCHE",
+    "POLYARTHRITE_RHUMATOIDE",
+    "SPONDYLOARTHRITE_AXIALE",
+    "OSTEOPOROSE",
+  ]),
+  douleurAvant: z.number().int().min(0).max(10).optional(),
+  gonflementArticulaire: z.boolean().default(false),
+  fievre: z.boolean().default(false),
+  symptomeInhabituel: z.boolean().default(false),
+});
+
+export type SessionPreAlertCancellationInput = z.infer<typeof sessionPreAlertCancellationSchema>;
+
 /** §69 « Feedback après séance » : clôture d'une séance (in_progress ->
  * completed | abandoned). `realisee = false` correspond à un abandon ; dans
  * ce cas le reste du feedback détaillé reste optionnel (§69 ne l'impose pas

@@ -260,6 +260,48 @@ export function SessionFlow({
     startSession();
   }
 
+  // Instruction directe de Dr Nikiema (27/09/2026, suite à la mise en place
+  // de l'avertissement ci-dessus) : « en cas de séance non réalisée liée à
+  // une douleur élevée ou à un autre critère, ce critère doit s'afficher sur
+  // le tableau de bord jusqu'à la prochaine tentative ». Comme aucune séance
+  // n'est créée dans `sessions` quand le patient annule, on enregistre cet
+  // événement séparément (`session_pre_alert_cancellations`) pour que le
+  // tableau de bord puisse en garder le rappel. Même discipline hors ligne
+  // que le reste du formulaire (§10, §54) : mise en file si hors ligne ou en
+  // cas d'échec réseau, jamais bloquant pour le patient qui retourne
+  // simplement à « Vérification rapide ».
+  function handleAnnulerClick() {
+    if (!pathology) {
+      setStep("verification");
+      return;
+    }
+    const body = { pathology, douleurAvant, gonflementArticulaire, fievre, symptomeInhabituel };
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      enqueueOperation({
+        id: crypto.randomUUID(),
+        entityType: "session_pre_alert_cancellation",
+        method: "POST",
+        url: "/api/sessions/pre-alert-cancellation",
+        body,
+      });
+    } else {
+      fetch("/api/sessions/pre-alert-cancellation", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      }).catch(() => {
+        enqueueOperation({
+          id: crypto.randomUUID(),
+          entityType: "session_pre_alert_cancellation",
+          method: "POST",
+          url: "/api/sessions/pre-alert-cancellation",
+          body,
+        });
+      });
+    }
+    setStep("verification");
+  }
+
   function toggleExerciseCompleted(exerciseId: string) {
     setCompletedExerciseIds((prev) => {
       const next = new Set(prev);
@@ -450,7 +492,7 @@ export function SessionFlow({
           </p>
         )}
 
-        <Button type="button" variant="secondary" onClick={() => setStep("verification")} disabled={submitting}>
+        <Button type="button" variant="secondary" onClick={handleAnnulerClick} disabled={submitting}>
           Annuler
         </Button>
         <Button type="button" onClick={startSession} disabled={submitting}>

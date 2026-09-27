@@ -4,6 +4,7 @@ import {
   isSubscriptionCurrentlyActive,
   getSubscriptionDaysRemaining,
   PATHOLOGY_LABELS_FR,
+  describeSessionPreAlertSignals,
   type PathologyCode,
 } from "@apa/domain";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -43,6 +44,8 @@ export default async function DashboardPage() {
     { data: latestSubscription },
     { data: assignments },
     { data: profile },
+    { data: preAlertCancellations },
+    { data: recentSessionsForAlert },
   ] = await Promise.all([
     supabase.from("users").select("first_name, role").eq("id", user!.id).maybeSingle(),
     supabase.from("notifications").select("id", { count: "exact", head: true }).eq("user_id", user!.id).eq("read", false),
@@ -67,6 +70,24 @@ export default async function DashboardPage() {
     // pathologies en attente d'évaluation qu'affichées dans « Mon programme »
     // — voir le calcul de `pendingEvaluationPathologies` plus bas.
     supabase.from("patient_profiles").select("main_pathologies").eq("user_id", user!.id).maybeSingle(),
+    // Sprint 33 (27/09/2026, instruction directe de Dr Nikiema) : « en cas de
+    // séance non réalisée liée à une douleur élevée ou à un autre critère, ce
+    // critère doit s'afficher sur le tableau de bord jusqu'à la prochaine
+    // tentative » — voir le calcul de `pendingPreAlertReminders` plus bas.
+    supabase
+      .from("session_pre_alert_cancellations")
+      .select("pathology, created_at, douleur_avant, gonflement_articulaire, fievre, symptome_inhabituel")
+      .eq("user_id", user!.id)
+      .order("created_at", { ascending: false })
+      .limit(50),
+    // « jusqu'à la prochaine tentative » : une tentative plus récente que la
+    // dernière annulation (poursuivie ou non) efface le rappel — voir plus bas.
+    supabase
+      .from("sessions")
+      .select("pathology, started_at")
+      .eq("user_id", user!.id)
+      .order("started_at", { ascending: false })
+      .limit(50),
   ]);
 
   const now = new Date();
@@ -99,6 +120,44 @@ export default async function DashboardPage() {
     (code) => !assignedPathologySet.has(code)
   );
 
+  // Sprint 33 (27/09/2026, instruction directe de Dr Nikiema) : « en cas de
+  // séance non réalisée liée à une douleur élevée ou à un autre critère, ce
+  // critère doit s'afficher sur le tableau de bord jusqu'à la prochaine
+  // tentative de réalisation de séance. Et si [...] le patient ne présente
+  // pas de critères qui l'empêchent de le faire, alors le tableau doit être
+  // normal. » Pour chaque pathologie, on ne garde que la dernière annulation
+  // (`preAlertCancellations` est trié du plus récent au plus ancien) ; le
+  // rappel disparaît dès qu'une séance a été démarrée après cette annulation
+  // (dans `sessions`, qu'elle ait été poursuivie malgré l'avertissement ou
+  // non — toute nouvelle tentative « résout » le rappel, seul son résultat
+  // futur compte, pas la tentative annulée).
+  const latestCancellationByPathology = new Map<string, (typeof preAlertCancellations)[number]>();
+  for (const row of preAlertCancellations ?? []) {
+    if (!latestCancellationByPathology.has(row.pathology)) {
+      latestCancellationByPathology.set(row.pathology, row);
+    }
+  }
+  const latestSessionStartedAtByPathology = new Map<string, string>();
+  for (const row of recentSessionsForAlert ?? []) {
+    if (!latestSessionStartedAtByPathology.has(row.pathology)) {
+      latestSessionStartedAtByPathology.set(row.pathology, row.started_at);
+    }
+  }
+  const pendingPreAlertReminders = Array.from(latestCancellationByPathology.entries())
+    .filter(([pathology, cancellation]) => {
+      const latestAttempt = latestSessionStartedAtByPathology.get(pathology);
+      return !latestAttempt || new Date(latestAttempt) <= new Date(cancellation.created_at);
+    })
+    .map(([pathology, cancellation]) => ({
+      pathology: pathology as PathologyCode,
+      reasons: describeSessionPreAlertSignals({
+        douleurAvant: cancellation.douleur_avant,
+        gonflementArticulaire: cancellation.gonflement_articulaire,
+        fievre: cancellation.fievre,
+        symptomeInhabituel: cancellation.symptome_inhabituel,
+      }),
+    }));
+
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col gap-4 px-6 py-12">
       <h1 className="text-2xl font-semibold text-primary-900">
@@ -130,6 +189,23 @@ export default async function DashboardPage() {
                 >
                   Faire l&apos;évaluation
                 </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {pendingPreAlertReminders.length > 0 && (
+        <div className="flex flex-col gap-2 rounded-xl border border-red-300 bg-red-50 p-4">
+          <p className="font-medium text-red-900">Séance non réalisée — signal à surveiller</p>
+          <p className="text-sm text-red-800">
+            La dernière fois, vous avez choisi de ne pas faire la séance suite à un avertissement.
+            Ce rappel disparaîtra dès votre prochaine tentative si aucun signe ne l&apos;empêche.
+          </p>
+          <ul className="flex flex-col gap-1">
+            {pendingPreAlertReminders.map(({ pathology, reasons }) => (
+              <li key={pathology} className="text-sm text-red-900">
+                <span className="font-medium">{PATHOLOGY_LABELS_FR[pathology]}</span>
+                {reasons.length > 0 ? ` — ${reasons.join(", ")}` : null}
               </li>
             ))}
           </ul>
