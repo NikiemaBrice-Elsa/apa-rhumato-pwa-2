@@ -28,9 +28,25 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // Correctif Sprint 33 octies (27/09/2026) : `getUser()` interroge toujours
+  // le serveur Supabase (contrairement à `getSession()`, qui se contente de
+  // décoder le cookie local) — une coupure réseau ou une latence importante
+  // peut donc la faire échouer même avec une session par ailleurs valide. Un
+  // échec ici ne doit jamais faire planter le middleware (page d'erreur au
+  // lieu de l'application) : on le traite prudemment comme "non vérifié",
+  // exactement le même comportement qu'avant (redirection vers /connexion).
+  // En pratique, ce cas ne se présente presque jamais pour une page déjà
+  // consultée hors connexion : le service worker (public/sw.js) répond alors
+  // directement depuis son cache, sans jamais atteindre ce middleware.
+  let user = null;
+  try {
+    const {
+      data: { user: fetchedUser },
+    } = await supabase.auth.getUser();
+    user = fetchedUser;
+  } catch {
+    user = null;
+  }
 
   const protectedPrefixes = [
     "/tableau-de-bord",

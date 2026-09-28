@@ -131,7 +131,7 @@ export default async function DashboardPage() {
   // (dans `sessions`, qu'elle ait été poursuivie malgré l'avertissement ou
   // non — toute nouvelle tentative « résout » le rappel, seul son résultat
   // futur compte, pas la tentative annulée).
-  const latestCancellationByPathology = new Map<string, (typeof preAlertCancellations)[number]>();
+  const latestCancellationByPathology = new Map<string, NonNullable<typeof preAlertCancellations>[number]>();
   for (const row of preAlertCancellations ?? []) {
     if (!latestCancellationByPathology.has(row.pathology)) {
       latestCancellationByPathology.set(row.pathology, row);
@@ -159,7 +159,7 @@ export default async function DashboardPage() {
     }));
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-md flex-col gap-4 px-6 py-12">
+    <main className="mx-auto flex min-h-screen max-w-md flex-col gap-4 px-6 py-12 sm:max-w-lg md:max-w-2xl lg:max-w-3xl xl:max-w-4xl">
       <h1 className="text-2xl font-semibold text-primary-900">
         Bonjour {appUser?.first_name ?? ""}
       </h1>

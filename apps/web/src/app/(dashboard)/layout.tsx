@@ -10,7 +10,7 @@ import { BackLink } from "@/components/dashboard/BackLink";
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
     <>
-      <div className="mx-auto max-w-md px-6 pt-4">
+      <div className="mx-auto max-w-md px-6 pt-4 sm:max-w-lg md:max-w-2xl lg:max-w-3xl xl:max-w-4xl">
         <BackLink />
         <OfflineBanner />
       </div>

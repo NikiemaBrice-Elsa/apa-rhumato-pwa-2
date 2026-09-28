@@ -28,7 +28,7 @@ import { PROFILE_LEVELS, PROFILE_LEVEL_LABELS_FR, PROFILE_LEVEL_GUIDANCE, PROGRE
  */
 export default function NiveauxPage() {
   return (
-    <main className="mx-auto flex min-h-screen max-w-md flex-col gap-6 px-6 py-12">
+    <main className="mx-auto flex min-h-screen max-w-md flex-col gap-6 px-6 py-12 sm:max-w-lg md:max-w-2xl lg:max-w-3xl xl:max-w-4xl">
       <div className="flex flex-col gap-1">
         <Link href="/programme" className="text-sm text-primary-600 underline">
           ← Retour à Mon programme
