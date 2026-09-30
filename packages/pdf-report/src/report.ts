@@ -81,6 +81,18 @@ export interface ReportPhysicalActivityPoint {
 }
 
 /**
+ * Sprint 35 (30/09/2026, instruction directe de Dr Nikiema) : « une moyenne
+ * de la durée des activités physiques réalisées sous forme de nombre
+ * d'heures par semaine ». Valeur déjà calculée en amont
+ * (`computeAveragePhysicalActivityHoursPerWeek`, `@apa/domain`) à partir des
+ * mêmes activités que `physicalActivities` ci-dessous — ce module se
+ * contente de l'afficher, comme pour le reste du rapport. `null` seulement
+ * si la période est invalide (cas qui ne devrait pas se produire en usage
+ * normal, voir la fonction domain).
+ */
+export type ReportPhysicalActivityWeeklyAverageHours = number | null;
+
+/**
  * Sprint 34 (30/09/2026, instruction directe de Dr Nikiema) : « les séances
  * non réalisées liées à un ou plusieurs critères donnés doivent apparaître
  * sur le rapport PDF avec les critères en question y compris la date » —
@@ -105,6 +117,9 @@ export interface PatientReportData {
   pain: ReportPainPoint[];
   measurements: ReportMeasurementPoint[];
   physicalActivities: ReportPhysicalActivityPoint[];
+  /** Sprint 35 (30/09/2026, instruction directe de Dr Nikiema) : voir
+   * `ReportPhysicalActivityWeeklyAverageHours` ci-dessus. */
+  physicalActivityWeeklyAverageHours: ReportPhysicalActivityWeeklyAverageHours;
   /** Sprint 34 (30/09/2026, instruction directe de Dr Nikiema) : séances non
    * réalisées suite à un avertissement de sécurité — voir
    * `ReportPreAlertCancellationPoint` ci-dessus. */
@@ -249,6 +264,16 @@ export function buildPatientReportPdf(data: PatientReportData): Promise<Buffer> 
         );
       }
     }
+    // Moyenne hebdomadaire (Sprint 35, 30/09/2026, instruction directe de Dr
+    // Nikiema), affichée juste après le détail ci-dessus, qu'il y ait ou non
+    // des activités enregistrées.
+    doc.text(
+      `Durée moyenne d'activité physique : ${
+        data.physicalActivityWeeklyAverageHours === null
+          ? "non disponible (période invalide)"
+          : `${data.physicalActivityWeeklyAverageHours} h/semaine`
+      }`
+    );
 
     // Séances non réalisées suite à un avertissement de sécurité (Sprint 34,
     // 30/09/2026, instruction directe de Dr Nikiema, au-delà des dix

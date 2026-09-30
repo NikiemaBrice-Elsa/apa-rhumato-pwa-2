@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { computeBmi } from "@apa/domain";
 import { Button } from "@/components/ui/Button";
 import { MiniLineChart } from "@/components/ui/MiniLineChart";
+import { MultiLineChart } from "@/components/ui/MultiLineChart";
 import { enqueueOperation } from "@/lib/offlineStorage";
 
 interface ProfileRow {
@@ -42,6 +43,18 @@ function formatDate(iso: string) {
  * aucune interprétation automatique (§34) et sans transformer l'IMC en
  * diagnostic (§35). Tension et glycémie ne s'affichent que si l'utilisateur
  * a activé `trackCardioParams` dans son profil (§13, §37, §38).
+ *
+ * Sprint 35 (30/09/2026, instruction directe de Dr Nikiema) : « on aura deux
+ * courbes, deux lignes sur la même courbe. Une courbe pour douleur avant et
+ * une courbe pour douleur après » — avant ce correctif, douleur avant/après
+ * étaient mélangées en une seule ligne en zigzag (`MiniLineChart` avec des
+ * points alternés « 05/07 avant », « 05/07 après »), ce qui rendait la
+ * tendance illisible. `PainSection` et `BloodPressureSection` (même logique
+ * pour systolique/diastolique, demande explicite « les chiffres tensionnels »
+ * = les deux valeurs) utilisent désormais `MultiLineChart`, avec un point par
+ * séance/mesure partagé entre les deux séries. Poids, tour de taille et
+ * glycémie n'ont qu'une seule valeur par mesure : `MiniLineChart` reste
+ * inchangé pour ces trois sections.
  */
 export function SuiviFlow() {
   const [profile, setProfile] = useState<ProfileRow | null>(null);
@@ -199,24 +212,23 @@ export function SuiviFlow() {
 }
 
 function PainSection({ points }: { points: PainPoint[] }) {
-  const chartPoints = points.flatMap((p) => {
-    const entries = [];
-    if (p.douleur_avant !== null) {
-      entries.push({ label: `${formatDate(p.started_at)} avant`, value: p.douleur_avant });
-    }
-    if (p.douleur_apres !== null) {
-      entries.push({ label: `${formatDate(p.started_at)} après`, value: p.douleur_apres });
-    }
-    return entries;
-  });
+  const xLabels = points.map((p) => formatDate(p.started_at));
 
   return (
     <section className="flex flex-col gap-2">
       <h2 className="font-semibold text-primary-900">Douleur (§34)</h2>
       <p className="text-sm text-primary-500">
-        Échelle 0 (aucune douleur) à 10 (douleur maximale), avant/après chaque séance.
+        Échelle 0 (aucune douleur) à 10 (douleur maximale) — une courbe pour la douleur avant chaque séance, une
+        courbe pour la douleur après.
       </p>
-      <MiniLineChart points={chartPoints} unit="/10" />
+      <MultiLineChart
+        xLabels={xLabels}
+        unit="/10"
+        series={[
+          { name: "Avant", values: points.map((p) => p.douleur_avant), colorClassName: "text-primary-700" },
+          { name: "Après", values: points.map((p) => p.douleur_apres), colorClassName: "text-teal-600" },
+        ]}
+      />
     </section>
   );
 }
@@ -311,15 +323,23 @@ function BloodPressureSection({
   const [systolic, setSystolic] = useState("");
   const [diastolic, setDiastolic] = useState("");
   const [heartRate, setHeartRate] = useState("");
-  const chartPoints = points.map((p) => ({ label: formatDate(p.recorded_at), value: Number(p.systolic_mmhg) }));
+  const xLabels = points.map((p) => formatDate(p.recorded_at));
 
   return (
     <section className="flex flex-col gap-2">
       <h2 className="font-semibold text-primary-900">Tension artérielle (§37)</h2>
       <p className="text-sm text-primary-500">
-        Ces données saisies par vous-même ne remplacent pas une mesure médicale professionnelle.
+        Ces données saisies par vous-même ne remplacent pas une mesure médicale professionnelle — une courbe pour la
+        systolique, une courbe pour la diastolique.
       </p>
-      <MiniLineChart points={chartPoints} unit=" mmHg (systolique)" />
+      <MultiLineChart
+        xLabels={xLabels}
+        unit=" mmHg"
+        series={[
+          { name: "Systolique", values: points.map((p) => p.systolic_mmhg), colorClassName: "text-primary-700" },
+          { name: "Diastolique", values: points.map((p) => p.diastolic_mmhg), colorClassName: "text-teal-600" },
+        ]}
+      />
       <div className="flex flex-wrap gap-2">
         <input
           type="number"

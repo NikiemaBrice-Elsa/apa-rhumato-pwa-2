@@ -9,6 +9,7 @@ import {
   formatActivityDurationLabel,
   formatWalkDistanceLabel,
   describeSessionPreAlertSignals,
+  computeAveragePhysicalActivityHoursPerWeek,
   type PathologyCode,
   type PhysicalActivityType,
   type ObjectiveCode,
@@ -193,6 +194,14 @@ export async function buildPatientReportData(
       durationLabel: formatActivityDurationLabel(a.duration_seconds),
       distanceLabel: a.distance_meters ? formatWalkDistanceLabel(a.distance_meters) : null,
     })),
+    // Sprint 35 (30/09/2026, instruction directe de Dr Nikiema) : moyenne
+    // calculée sur les mêmes activités que `physicalActivities` ci-dessus et
+    // la même période que le reste du rapport — aucun recalcul, aucune
+    // nouvelle requête.
+    physicalActivityWeeklyAverageHours: computeAveragePhysicalActivityHoursPerWeek(
+      (physicalActivities ?? []).map((a) => ({ durationSeconds: a.duration_seconds })),
+      { from: from.toISOString(), to: to.toISOString() }
+    ),
     observations: allSessions
       .filter((s) => s.ressenti && s.ressenti.trim().length > 0)
       .map((s) => ({ date: s.started_at, text: s.ressenti as string })),

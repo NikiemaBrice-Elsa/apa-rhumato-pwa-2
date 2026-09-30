@@ -13,6 +13,7 @@ const BASE_DATA: PatientReportData = {
   physicalActivities: [
     { date: "2026-07-08T08:00:00Z", activityTypeLabel: "Marche", durationLabel: "30 min", distanceLabel: "2.10 km" },
   ],
+  physicalActivityWeeklyAverageHours: 0.5,
   observations: [{ date: "2026-07-05T10:00:00Z", text: "Séance bien vécue." }],
   objectives: ["Améliorer la mobilité", "Reprendre progressivement une activité physique"],
   preAlertCancellations: [{ date: "2026-07-12T09:00:00Z", reasons: ["douleur élevée (8/10)", "fièvre"] }],
@@ -112,6 +113,36 @@ describe("buildPatientReportPdf — section « Activités physiques » (Sprint 2
     const buffer = await buildPatientReportPdf(empty);
     const text = await extractText(buffer);
     expect(text).toMatch(/aucune activité physique/i);
+  });
+});
+
+/**
+ * Moyenne hebdomadaire d'activité physique (Sprint 35, 30/09/2026) —
+ * instruction directe de Dr Nikiema : « une moyenne de la durée des
+ * activités physiques réalisées sous forme de nombre d'heures par
+ * semaine ». Valeur déjà calculée en amont (voir
+ * `computeAveragePhysicalActivityHoursPerWeek`, `@apa/domain`) ; ce module
+ * se contente de l'afficher, y compris quand elle vaut 0 ou est `null`.
+ */
+describe("buildPatientReportPdf — moyenne hebdomadaire d'activité physique (Sprint 35)", () => {
+  it("affiche la moyenne hebdomadaire en heures/semaine", async () => {
+    const buffer = await buildPatientReportPdf(BASE_DATA);
+    const text = await extractText(buffer);
+    expect(text).toMatch(/0\.5 h\/semaine/);
+  });
+
+  it("affiche 0 h/semaine plutôt que de l'omettre quand la moyenne est nulle", async () => {
+    const zero: PatientReportData = { ...BASE_DATA, physicalActivityWeeklyAverageHours: 0 };
+    const buffer = await buildPatientReportPdf(zero);
+    const text = await extractText(buffer);
+    expect(text).toMatch(/0 h\/semaine/);
+  });
+
+  it("indique explicitement l'indisponibilité plutôt que d'inventer une valeur si la période est invalide", async () => {
+    const invalid: PatientReportData = { ...BASE_DATA, physicalActivityWeeklyAverageHours: null };
+    const buffer = await buildPatientReportPdf(invalid);
+    const text = await extractText(buffer);
+    expect(text).toMatch(/non disponible \(période invalide\)/i);
   });
 });
 

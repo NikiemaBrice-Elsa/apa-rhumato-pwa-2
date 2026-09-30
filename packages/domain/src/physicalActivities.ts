@@ -78,3 +78,36 @@ export function summarizePhysicalActivitiesByType(
     ...(totals.get(type) as { totalDurationSeconds: number; count: number }),
   }));
 }
+
+export interface PhysicalActivityPeriod {
+  from: string;
+  to: string;
+}
+
+/**
+ * Moyenne hebdomadaire (heures/semaine) du temps total passé en activité
+ * physique sur une période donnée (Sprint 35, 30/09/2026, instruction
+ * directe de Dr Nikiema : « une moyenne de la durée des activités physiques
+ * réalisées sous forme de nombre d'heures par semaine », destinée au
+ * rapport PDF). Fonction pure, aucun calcul clinique.
+ *
+ * Un résultat à 0 h/semaine est un fait (aucune activité enregistrée sur la
+ * période), pas une valeur devinée — il est donc bien retourné (§57, §59
+ * interdisent d'inventer une valeur non enregistrée, pas d'afficher un
+ * total réel de zéro). `null` n'est retourné que si la période elle-même
+ * est invalide (durée nulle ou négative), pour éviter une division absurde
+ * plutôt que produire un nombre qui n'aurait pas de sens.
+ */
+export function computeAveragePhysicalActivityHoursPerWeek(
+  activities: Pick<PhysicalActivity, "durationSeconds">[],
+  period: PhysicalActivityPeriod
+): number | null {
+  const periodMs = new Date(period.to).getTime() - new Date(period.from).getTime();
+  if (!Number.isFinite(periodMs) || periodMs <= 0) return null;
+
+  const periodWeeks = periodMs / (1000 * 60 * 60 * 24 * 7);
+  const totalHours = activities.reduce((sum, a) => sum + a.durationSeconds, 0) / 3600;
+
+  // Arrondi à 2 décimales pour un affichage lisible (ex. 1.25 h/semaine).
+  return Math.round((totalHours / periodWeeks) * 100) / 100;
+}
