@@ -15,6 +15,7 @@ const BASE_DATA: PatientReportData = {
   ],
   observations: [{ date: "2026-07-05T10:00:00Z", text: "Séance bien vécue." }],
   objectives: ["Améliorer la mobilité", "Reprendre progressivement une activité physique"],
+  preAlertCancellations: [{ date: "2026-07-12T09:00:00Z", reasons: ["douleur élevée (8/10)", "fièvre"] }],
   userNote: null,
 };
 
@@ -135,5 +136,29 @@ describe("buildPatientReportPdf — section « Objectifs » (Sprint 33)", () => 
     const buffer = await buildPatientReportPdf(empty);
     const text = await extractText(buffer);
     expect(text).toMatch(/aucun objectif/i);
+  });
+});
+
+/**
+ * Section « Séances non réalisées (avertissement de sécurité) » (Sprint 34,
+ * 30/09/2026) — instruction directe de Dr Nikiema : « les séances non
+ * réalisées liées à un ou plusieurs critères donnés doivent apparaître sur
+ * le rapport PDF avec les critères en question y compris la date ». Testée
+ * séparément, même méthode que « Activités physiques »/« Objectifs »
+ * ci-dessus (ajoutée au-delà des dix sections imposées par le §71 d'origine).
+ */
+describe("buildPatientReportPdf — section « Séances non réalisées (avertissement de sécurité) » (Sprint 34)", () => {
+  it("liste chaque séance annulée avec sa date et ses critères", async () => {
+    const buffer = await buildPatientReportPdf(BASE_DATA);
+    const text = await extractText(buffer);
+    expect(text).toContain("Séances non réalisées (avertissement de sécurité)");
+    expect(text).toMatch(/12\/07\/2026.*douleur élevée \(8\/10\).*fièvre/s);
+  });
+
+  it("indique explicitement l'absence de séance annulée plutôt que de ne rien afficher", async () => {
+    const empty: PatientReportData = { ...BASE_DATA, preAlertCancellations: [] };
+    const buffer = await buildPatientReportPdf(empty);
+    const text = await extractText(buffer);
+    expect(text).toMatch(/aucune séance non réalisée/i);
   });
 });

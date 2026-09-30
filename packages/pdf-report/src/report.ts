@@ -80,6 +80,22 @@ export interface ReportPhysicalActivityPoint {
   distanceLabel?: string | null;
 }
 
+/**
+ * Sprint 34 (30/09/2026, instruction directe de Dr Nikiema) : « les séances
+ * non réalisées liées à un ou plusieurs critères donnés doivent apparaître
+ * sur le rapport PDF avec les critères en question y compris la date » —
+ * reprend les événements « Annuler » face à l'avertissement avant séance
+ * (douleur élevée/gonflement articulaire/fièvre/symptôme inhabituel, Sprint
+ * 33 sexies/septies, table `session_pre_alert_cancellations`). Raisons déjà
+ * formatées en français par l'appelant (`describeSessionPreAlertSignals`,
+ * @apa/domain), jamais recalculées ici — même principe que les autres
+ * sections de ce module.
+ */
+export interface ReportPreAlertCancellationPoint {
+  date: string;
+  reasons: string[];
+}
+
 export interface PatientReportData {
   identity: ReportIdentity;
   pathologyLabel: string;
@@ -89,6 +105,10 @@ export interface PatientReportData {
   pain: ReportPainPoint[];
   measurements: ReportMeasurementPoint[];
   physicalActivities: ReportPhysicalActivityPoint[];
+  /** Sprint 34 (30/09/2026, instruction directe de Dr Nikiema) : séances non
+   * réalisées suite à un avertissement de sécurité — voir
+   * `ReportPreAlertCancellationPoint` ci-dessus. */
+  preAlertCancellations: ReportPreAlertCancellationPoint[];
   observations: ReportObservation[];
   /** Sprint 33 (24/09/2026, instruction directe de Dr Nikiema) : objectifs
    * déclarés par le patient dans son profil (`patient_profiles.objectives`,
@@ -227,6 +247,19 @@ export function buildPatientReportPdf(data: PatientReportData): Promise<Buffer> 
           `${formatDate(activity.date)} — ${activity.activityTypeLabel} : ${activity.durationLabel}` +
             (activity.distanceLabel ? ` (${activity.distanceLabel})` : "")
         );
+      }
+    }
+
+    // Séances non réalisées suite à un avertissement de sécurité (Sprint 34,
+    // 30/09/2026, instruction directe de Dr Nikiema, au-delà des dix
+    // sections imposées par le §71 d'origine — même méthode que « Activités
+    // physiques »/« Objectifs » ci-dessus).
+    sectionTitle(doc, "Séances non réalisées (avertissement de sécurité)");
+    if (data.preAlertCancellations.length === 0) {
+      doc.text("Aucune séance non réalisée suite à un avertissement de sécurité sur cette période.");
+    } else {
+      for (const c of data.preAlertCancellations) {
+        doc.text(`${formatDate(c.date)} — ${c.reasons.join(", ")}`);
       }
     }
 

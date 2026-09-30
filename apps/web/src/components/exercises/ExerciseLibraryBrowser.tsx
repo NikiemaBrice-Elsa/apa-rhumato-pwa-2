@@ -13,6 +13,7 @@ import {
 } from "@apa/domain";
 import { ExerciseLibraryDetail } from "./ExerciseLibraryDetail";
 import { AudioCoach } from "./AudioCoach";
+import { ExerciseTypePreview } from "./ExerciseTypePreview";
 
 export interface LibraryExercise {
   exerciseId: string;
@@ -57,6 +58,12 @@ export interface LibraryExercise {
  * un écran vide — `pathologiesWithExercises`/`categoriesForPathology`
  * (packages/domain/src/exercises.ts) ne retournent que ce qui a
  * effectivement du contenu validé (§57, §59).
+ *
+ * Sprint 34 (30/09/2026, instruction directe de Dr Nikiema) : l'étape 2
+ * (types d'exercices recommandés) affiche désormais `ExerciseTypePreview`
+ * (image aérobie/renforcement correspondant à la pathologie choisie) — les
+ * mêmes 12 images déjà utilisées à l'écran pédagogique post-évaluation et au
+ * démarrage de séance, simplement réutilisées ici sans nouvelle logique.
  */
 export function ExerciseLibraryBrowser({ exercises, isPremium }: { exercises: LibraryExercise[]; isPremium: boolean }) {
   const [pathology, setPathology] = useState<PathologyCode | null>(null);
@@ -103,6 +110,14 @@ export function ExerciseLibraryBrowser({ exercises, isPremium }: { exercises: Li
           ‹ Retour aux pathologies
         </button>
         <h2 className="font-semibold text-primary-900">{PATHOLOGY_LABELS_FR[pathology]}</h2>
+        {/* Sprint 34 (30/09/2026, instruction directe de Dr Nikiema) :
+            « associer les images aérobie et renforcement correspondant à
+            chaque pathologie » dans la bibliothèque — réutilise directement
+            `ExerciseTypePreview` (mêmes 12 images déjà validées, voir
+            apps/web/public/images/pathologies/), déjà affiché ailleurs pour
+            cette même pathologie (écran pédagogique après évaluation,
+            démarrage de séance). */}
+        <ExerciseTypePreview pathology={pathology} />
         <p className="text-primary-700">Types d&apos;exercices recommandés :</p>
         <ul className="flex flex-col gap-2">
           {categories.map((cat) => (

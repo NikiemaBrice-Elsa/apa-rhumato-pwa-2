@@ -8,6 +8,7 @@ import {
   OBJECTIVE_LABELS_FR,
   formatActivityDurationLabel,
   formatWalkDistanceLabel,
+  describeSessionPreAlertSignals,
   type PathologyCode,
   type PhysicalActivityType,
   type ObjectiveCode,
@@ -73,7 +74,15 @@ export async function buildPatientReportData(
   to: Date,
   userNote?: string | null
 ): Promise<PatientReportData> {
-  const [{ data: appUser }, { data: profile }, { data: sessions }, { data: measurements }, { data: physicalActivities }, { data: assignment }] =
+  const [
+    { data: appUser },
+    { data: profile },
+    { data: sessions },
+    { data: measurements },
+    { data: physicalActivities },
+    { data: assignment },
+    { data: preAlertCancellations },
+  ] =
     await Promise.all([
       supabase.from("users").select("first_name, last_name").eq("id", userId).maybeSingle(),
       // Sprint 33 (24/09/2026, instruction directe de Dr Nikiema) : « les
@@ -117,6 +126,20 @@ export async function buildPatientReportData(
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle(),
+      // Sprint 34 (30/09/2026, instruction directe de Dr Nikiema) : « les
+      // séances non réalisées liées à un ou plusieurs critères donnés
+      // doivent apparaître sur le rapport PDF avec les critères en question
+      // y compris la date » — événements « Annuler » face à l'avertissement
+      // avant séance (Sprint 33 septies), scopés à cette pathologie et à la
+      // période du rapport comme `sessions` ci-dessus.
+      supabase
+        .from("session_pre_alert_cancellations")
+        .select("created_at, douleur_avant, gonflement_articulaire, fievre, symptome_inhabituel")
+        .eq("user_id", userId)
+        .eq("pathology", pathology)
+        .gte("created_at", from.toISOString())
+        .lte("created_at", to.toISOString())
+        .order("created_at", { ascending: true }),
     ]);
 
   const allSessions = sessions ?? [];
@@ -174,6 +197,15 @@ export async function buildPatientReportData(
       .filter((s) => s.ressenti && s.ressenti.trim().length > 0)
       .map((s) => ({ date: s.started_at, text: s.ressenti as string })),
     objectives,
+    preAlertCancellations: (preAlertCancellations ?? []).map((c) => ({
+      date: c.created_at,
+      reasons: describeSessionPreAlertSignals({
+        douleurAvant: c.douleur_avant,
+        gonflementArticulaire: c.gonflement_articulaire,
+        fievre: c.fievre,
+        symptomeInhabituel: c.symptome_inhabituel,
+      }),
+    })),
     userNote: userNote ?? null,
   };
 }
