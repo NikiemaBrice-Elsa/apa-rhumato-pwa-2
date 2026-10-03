@@ -32,4 +32,15 @@ textarea {
   .animate-subscription-blink {
     animation: none;
   }
+
+  /* Sprint 37 (03/10/2026) : GIFs de félicitations (séance terminée,
+     niveau débloqué — purement décoratifs, voir SessionFlow.tsx et
+     StatisticsFlow.tsx) entièrement masqués pour les utilisateurs ayant
+     demandé moins d'animations, un GIF ne pouvant pas être mis en pause en
+     CSS contrairement à une animation CSS classique. L'information reste
+     affichée : seul le GIF disparaît, jamais le texte qui l'accompagne
+     (§50 accessibilité, même principe que ci-dessus). */
+  .celebration-gif {
+    display: none;
+  }
 }

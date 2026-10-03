@@ -3,6 +3,7 @@ import {
   sessionDurationMinutes,
   computeAdherencePercent,
   glycemiaGramsPerLToMmol,
+  glycemiaMmolToGramsPerL,
   PATHOLOGY_LABELS_FR,
   PHYSICAL_ACTIVITY_TYPE_LABELS_FR,
   OBJECTIVE_LABELS_FR,
@@ -188,6 +189,31 @@ export async function buildPatientReportData(
         return formatted ? { ...formatted, date: m.recorded_at } : null;
       })
       .filter((m): m is { label: string; summary: string; date: string } => Boolean(m)),
+    // Sprint 36 (03/10/2026, instruction directe de Dr Nikiema : « dans le
+    // rapport généré je ne vois pas de courbe [...] pourtant ils doivent
+    // apparaître ») — séries numériques brutes par type, dérivées des mêmes
+    // lignes `measurements` que ci-dessus (aucune nouvelle requête), pour
+    // dessiner une courbe (voir @apa/pdf-report/chart.ts) en plus de la
+    // liste textuelle officielle du §71. La glycémie est normalisée en g/L
+    // (seule unité cohérente pour une courbe unique quand les mesures
+    // mélangent g/L et mmol/L), avec la même conversion que celle déjà
+    // affichée dans `measurements` ci-dessus — jamais une nouvelle règle.
+    weightSeries: (measurements ?? [])
+      .filter((m) => m.measurement_type === "poids" && m.weight_kg != null)
+      .map((m) => ({ date: m.recorded_at, value: m.weight_kg as number })),
+    waistSeries: (measurements ?? [])
+      .filter((m) => m.measurement_type === "tour_de_taille" && m.waist_circumference_cm != null)
+      .map((m) => ({ date: m.recorded_at, value: m.waist_circumference_cm as number })),
+    bloodPressureSeries: (measurements ?? [])
+      .filter((m) => m.measurement_type === "tension_arterielle" && m.systolic_mmhg != null && m.diastolic_mmhg != null)
+      .map((m) => ({ date: m.recorded_at, systolic: m.systolic_mmhg as number, diastolic: m.diastolic_mmhg as number })),
+    glycemiaSeriesGramsPerL: (measurements ?? [])
+      .filter((m) => m.measurement_type === "glycemie" && m.glycemia_value != null && m.glycemia_unit)
+      .map((m) => ({
+        date: m.recorded_at,
+        valueGramsPerL:
+          m.glycemia_unit === "g_l" ? (m.glycemia_value as number) : glycemiaMmolToGramsPerL(m.glycemia_value as number),
+      })),
     physicalActivities: (physicalActivities ?? []).map((a) => ({
       date: a.started_at,
       activityTypeLabel: PHYSICAL_ACTIVITY_TYPE_LABELS_FR[a.activity_type as PhysicalActivityType] ?? a.activity_type,

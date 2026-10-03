@@ -1,5 +1,6 @@
 import PDFDocument from "pdfkit";
 import { LOGO_PNG_BASE64 } from "./assets/logo";
+import { CHART_COLOR_PRIMARY, CHART_COLOR_SECONDARY, drawMultiLineChart } from "./chart";
 
 /**
  * Génération du rapport utilisateur (§40 « Rapport PDF », §71 « Rapport
@@ -108,6 +109,42 @@ export interface ReportPreAlertCancellationPoint {
   reasons: string[];
 }
 
+/**
+ * Sprint 36 (03/10/2026, instruction directe de Dr Nikiema : « dans le
+ * rapport généré je ne vois pas de courbe ni pour la douleur ni pour les
+ * autres paramètres, pourtant ils doivent apparaître ») — séries numériques
+ * brutes (poids, tour de taille, tension, glycémie) nécessaires pour
+ * dessiner une courbe (voir `./chart.ts`), à ne pas confondre avec
+ * `measurements` ci-dessous qui reste la liste textuelle officielle du §71,
+ * inchangée. Mêmes principes que le reste du module : aucun calcul
+ * clinique, valeurs déjà prêtes à l'emploi fournies par l'appelant (voir
+ * `apps/web/src/lib/patientReport.ts`). La glycémie est normalisée en g/L
+ * par l'appelant (seule unité cohérente pour tracer une courbe quand les
+ * mesures mélangent g/L et mmol/L) — même conversion que celle déjà
+ * affichée dans `measurements` (`glycemiaGramsPerLToMmol`/`glycemiaMmolToGramsPerL`,
+ * `@apa/domain`), jamais une nouvelle règle inventée ici.
+ */
+export interface ReportWeightPoint {
+  date: string;
+  value: number;
+}
+
+export interface ReportWaistPoint {
+  date: string;
+  value: number;
+}
+
+export interface ReportBloodPressurePoint {
+  date: string;
+  systolic: number;
+  diastolic: number;
+}
+
+export interface ReportGlycemiaPoint {
+  date: string;
+  valueGramsPerL: number;
+}
+
 export interface PatientReportData {
   identity: ReportIdentity;
   pathologyLabel: string;
@@ -116,6 +153,15 @@ export interface PatientReportData {
   adherence: ReportAdherence;
   pain: ReportPainPoint[];
   measurements: ReportMeasurementPoint[];
+  /** Sprint 36 (03/10/2026, instruction directe de Dr Nikiema) : voir
+   * `ReportWeightPoint`/`ReportWaistPoint`/`ReportBloodPressurePoint`/
+   * `ReportGlycemiaPoint` ci-dessus — alimentent les courbes dessinées dans
+   * la nouvelle section « Courbes de suivi », `measurements` ci-dessus reste
+   * la liste textuelle officielle du §71. */
+  weightSeries: ReportWeightPoint[];
+  waistSeries: ReportWaistPoint[];
+  bloodPressureSeries: ReportBloodPressurePoint[];
+  glycemiaSeriesGramsPerL: ReportGlycemiaPoint[];
   physicalActivities: ReportPhysicalActivityPoint[];
   /** Sprint 35 (30/09/2026, instruction directe de Dr Nikiema) : voir
    * `ReportPhysicalActivityWeeklyAverageHours` ci-dessus. */
@@ -238,6 +284,18 @@ export function buildPatientReportPdf(data: PatientReportData): Promise<Buffer> 
           `${formatDate(point.date)} — avant : ${point.before ?? "—"}/10, après : ${point.after ?? "—"}/10`
         );
       }
+      // Sprint 36 (03/10/2026, instruction directe de Dr Nikiema) : courbe à
+      // deux séries (avant/après), même logique que `MultiLineChart.tsx`
+      // dans l'application — voir ./chart.ts.
+      doc.moveDown(0.3);
+      drawMultiLineChart(doc, {
+        xLabels: data.pain.map((p) => formatDate(p.date)),
+        unit: "/10",
+        series: [
+          { name: "Avant", values: data.pain.map((p) => p.before), color: CHART_COLOR_PRIMARY },
+          { name: "Après", values: data.pain.map((p) => p.after), color: CHART_COLOR_SECONDARY },
+        ],
+      });
     }
 
     // Mesures (§71) = évolution du poids + autres paramètres du §40.
@@ -248,6 +306,83 @@ export function buildPatientReportPdf(data: PatientReportData): Promise<Buffer> 
       for (const m of data.measurements) {
         doc.text(`${formatDate(m.date)} — ${m.label} : ${m.summary}`);
       }
+    }
+
+    // Courbes de suivi (Sprint 36, 03/10/2026, instruction directe de Dr
+    // Nikiema, au-delà des dix sections imposées par le §71 d'origine) :
+    // une courbe par paramètre, en plus de la liste textuelle « Mesures »
+    // ci-dessus qui reste inchangée. Chaque sous-section gère son absence de
+    // donnée indépendamment (un patient peut avoir du poids mais pas de
+    // tension, par ex.) plutôt qu'un message global.
+    sectionTitle(doc, "Courbes de suivi (tension, glycémie, poids, tour de taille)");
+
+    doc.fontSize(11).fillColor("#1e4e9e").text("Tension artérielle");
+    doc.fillColor("#000000").fontSize(11);
+    if (data.bloodPressureSeries.length === 0) {
+      doc.fontSize(10).text("Aucune mesure de tension enregistrée sur cette période.");
+      doc.fontSize(11);
+      doc.moveDown(0.3);
+    } else {
+      drawMultiLineChart(doc, {
+        xLabels: data.bloodPressureSeries.map((p) => formatDate(p.date)),
+        unit: " mmHg",
+        series: [
+          { name: "Systolique", values: data.bloodPressureSeries.map((p) => p.systolic), color: CHART_COLOR_PRIMARY },
+          {
+            name: "Diastolique",
+            values: data.bloodPressureSeries.map((p) => p.diastolic),
+            color: CHART_COLOR_SECONDARY,
+          },
+        ],
+      });
+    }
+
+    doc.fontSize(11).fillColor("#1e4e9e").text("Glycémie");
+    doc.fillColor("#000000").fontSize(11);
+    if (data.glycemiaSeriesGramsPerL.length === 0) {
+      doc.fontSize(10).text("Aucune mesure de glycémie enregistrée sur cette période.");
+      doc.fontSize(11);
+      doc.moveDown(0.3);
+    } else {
+      drawMultiLineChart(doc, {
+        xLabels: data.glycemiaSeriesGramsPerL.map((p) => formatDate(p.date)),
+        unit: " g/L",
+        series: [
+          {
+            name: "Glycémie",
+            values: data.glycemiaSeriesGramsPerL.map((p) => p.valueGramsPerL),
+            color: CHART_COLOR_PRIMARY,
+          },
+        ],
+      });
+    }
+
+    doc.fontSize(11).fillColor("#1e4e9e").text("Poids");
+    doc.fillColor("#000000").fontSize(11);
+    if (data.weightSeries.length === 0) {
+      doc.fontSize(10).text("Aucune mesure de poids enregistrée sur cette période.");
+      doc.fontSize(11);
+      doc.moveDown(0.3);
+    } else {
+      drawMultiLineChart(doc, {
+        xLabels: data.weightSeries.map((p) => formatDate(p.date)),
+        unit: " kg",
+        series: [{ name: "Poids", values: data.weightSeries.map((p) => p.value), color: CHART_COLOR_PRIMARY }],
+      });
+    }
+
+    doc.fontSize(11).fillColor("#1e4e9e").text("Tour de taille");
+    doc.fillColor("#000000").fontSize(11);
+    if (data.waistSeries.length === 0) {
+      doc.fontSize(10).text("Aucune mesure de tour de taille enregistrée sur cette période.");
+      doc.fontSize(11);
+      doc.moveDown(0.3);
+    } else {
+      drawMultiLineChart(doc, {
+        xLabels: data.waistSeries.map((p) => formatDate(p.date)),
+        unit: " cm",
+        series: [{ name: "Tour de taille", values: data.waistSeries.map((p) => p.value), color: CHART_COLOR_PRIMARY }],
+      });
     }
 
     // Activités physiques (chronomètre, marche/vélo GPS — Sprint 25/26,

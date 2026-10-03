@@ -8,8 +8,27 @@ const BASE_DATA: PatientReportData = {
   period: { from: "2026-07-01T00:00:00Z", to: "2026-07-31T23:59:59Z" },
   activity: { sessionsPlanned: null, sessionsCompleted: 3, totalActiveMinutes: 45 },
   adherence: { percent: null },
-  pain: [{ date: "2026-07-05T10:00:00Z", before: 4, after: 2 }],
+  pain: [
+    { date: "2026-07-05T10:00:00Z", before: 4, after: 2 },
+    { date: "2026-07-12T10:00:00Z", before: 5, after: 3 },
+  ],
   measurements: [{ label: "Poids", date: "2026-07-10T10:00:00Z", summary: "72.5 kg" }],
+  weightSeries: [
+    { date: "2026-07-03T10:00:00Z", value: 73 },
+    { date: "2026-07-10T10:00:00Z", value: 72.5 },
+  ],
+  waistSeries: [
+    { date: "2026-07-03T10:00:00Z", value: 98 },
+    { date: "2026-07-10T10:00:00Z", value: 97 },
+  ],
+  bloodPressureSeries: [
+    { date: "2026-07-04T08:00:00Z", systolic: 128, diastolic: 82 },
+    { date: "2026-07-11T08:00:00Z", systolic: 122, diastolic: 78 },
+  ],
+  glycemiaSeriesGramsPerL: [
+    { date: "2026-07-06T08:00:00Z", valueGramsPerL: 1.05 },
+    { date: "2026-07-13T08:00:00Z", valueGramsPerL: 0.98 },
+  ],
   physicalActivities: [
     { date: "2026-07-08T08:00:00Z", activityTypeLabel: "Marche", durationLabel: "30 min", distanceLabel: "2.10 km" },
   ],
@@ -191,5 +210,105 @@ describe("buildPatientReportPdf — section « Séances non réalisées (avertis
     const buffer = await buildPatientReportPdf(empty);
     const text = await extractText(buffer);
     expect(text).toMatch(/aucune séance non réalisée/i);
+  });
+});
+
+/**
+ * Courbes dans le rapport PDF (Sprint 36, 03/10/2026, instruction directe de
+ * Dr Nikiema après relecture d'un rapport généré : « dans le rapport généré
+ * je ne vois pas de courbe ni pour la douleur ni pour les autres paramètres,
+ * pourtant ils doivent apparaître »). `pdf-parse` n'extrait que le texte, pas
+ * les tracés vectoriels eux-mêmes (voir `chart.test.ts` pour la géométrie
+ * pure) : ces tests vérifient donc ce qui doit apparaître EN TEXTE autour de
+ * chaque courbe (titre de sous-section, légende, dernière valeur avec son
+ * unité, dates de repère, message explicite si aucune donnée) — un indice
+ * fiable que le bon graphique a bien été dessiné au bon endroit, sans pour
+ * autant remplacer une relecture visuelle du PDF.
+ */
+describe("buildPatientReportPdf — courbes (Sprint 36)", () => {
+  it("affiche la légende et la dernière valeur de la courbe douleur (avant/après)", async () => {
+    const buffer = await buildPatientReportPdf(BASE_DATA);
+    const text = await extractText(buffer);
+    expect(text).toContain("Avant");
+    expect(text).toContain("Après");
+    expect(text).toMatch(/Avant : 5\/10/);
+    expect(text).toMatch(/Après : 3\/10/);
+  });
+
+  it("n'affiche pas de courbe douleur quand il n'y a aucune donnée (déjà couvert par le message textuel)", async () => {
+    const empty: PatientReportData = { ...BASE_DATA, pain: [] };
+    const buffer = await buildPatientReportPdf(empty);
+    const text = await extractText(buffer);
+    expect(text).toMatch(/aucune donnée de douleur/i);
+    expect(text).not.toMatch(/aucune donnée enregistrée pour l'instant/i);
+  });
+
+  it("affiche la section « Courbes de suivi » avec ses quatre sous-sections", async () => {
+    const buffer = await buildPatientReportPdf(BASE_DATA);
+    const text = await extractText(buffer);
+    expect(text).toContain("Courbes de suivi (tension, glycémie, poids, tour de taille)");
+    expect(text).toContain("Tension artérielle");
+    expect(text).toContain("Glycémie");
+    expect(text).toContain("Poids");
+    expect(text).toContain("Tour de taille");
+  });
+
+  it("affiche la légende systolique/diastolique et les dernières valeurs en mmHg", async () => {
+    const buffer = await buildPatientReportPdf(BASE_DATA);
+    const text = await extractText(buffer);
+    expect(text).toContain("Systolique");
+    expect(text).toContain("Diastolique");
+    expect(text).toMatch(/Systolique : 122 mmHg/);
+    expect(text).toMatch(/Diastolique : 78 mmHg/);
+  });
+
+  it("affiche la dernière valeur de glycémie en g/L (série déjà normalisée par l'appelant)", async () => {
+    const buffer = await buildPatientReportPdf(BASE_DATA);
+    const text = await extractText(buffer);
+    expect(text).toMatch(/Glycémie : 0\.98 g\/L/);
+  });
+
+  it("affiche la dernière valeur de poids et de tour de taille avec leur unité", async () => {
+    const buffer = await buildPatientReportPdf(BASE_DATA);
+    const text = await extractText(buffer);
+    expect(text).toMatch(/Poids : 72\.5 kg/);
+    expect(text).toMatch(/Tour de taille : 97 cm/);
+  });
+
+  it("indique explicitement l'absence de donnée par paramètre, indépendamment des autres", async () => {
+    const partial: PatientReportData = {
+      ...BASE_DATA,
+      bloodPressureSeries: [],
+      glycemiaSeriesGramsPerL: [],
+    };
+    const buffer = await buildPatientReportPdf(partial);
+    const text = await extractText(buffer);
+    expect(text).toMatch(/aucune mesure de tension enregistrée/i);
+    expect(text).toMatch(/aucune mesure de glycémie enregistrée/i);
+    // Poids et tour de taille, eux, ont toujours des données dans ce cas : la
+    // courbe doit donc bien s'afficher (dernière valeur toujours présente).
+    expect(text).toMatch(/Poids : 72\.5 kg/);
+    expect(text).toMatch(/Tour de taille : 97 cm/);
+  });
+
+  it("indique explicitement l'absence de donnée pour les quatre paramètres à la fois", async () => {
+    const empty: PatientReportData = {
+      ...BASE_DATA,
+      weightSeries: [],
+      waistSeries: [],
+      bloodPressureSeries: [],
+      glycemiaSeriesGramsPerL: [],
+    };
+    const buffer = await buildPatientReportPdf(empty);
+    const text = await extractText(buffer);
+    expect(text).toMatch(/aucune mesure de tension enregistrée/i);
+    expect(text).toMatch(/aucune mesure de glycémie enregistrée/i);
+    expect(text).toMatch(/aucune mesure de poids enregistrée/i);
+    expect(text).toMatch(/aucune mesure de tour de taille enregistrée/i);
+  });
+
+  it("produit toujours un buffer PDF valide, courbes incluses", async () => {
+    const buffer = await buildPatientReportPdf(BASE_DATA);
+    expect(buffer.subarray(0, 4).toString("ascii")).toBe("%PDF");
   });
 });

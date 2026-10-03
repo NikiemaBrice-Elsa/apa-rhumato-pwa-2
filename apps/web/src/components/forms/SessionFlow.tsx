@@ -665,6 +665,22 @@ export function SessionFlow({
   if (step === "result") {
     return (
       <div className="flex flex-col gap-3 rounded-xl border border-primary-300 bg-white p-4">
+        {/* Sprint 37 (03/10/2026, instruction directe de Dr Nikiema) : GIF
+            purement décoratif, affiché uniquement quand la séance est
+            réellement enregistrée en ligne (jamais pour le cas hors
+            connexion, qui a son propre message distinct ci-dessous).
+            `alt=""` : l'information est déjà portée par le titre en texte
+            juste après, jamais par l'image seule (§57, §59). Masqué pour
+            les utilisateurs ayant demandé moins d'animations
+            (`prefers-reduced-motion`, voir globals.css), sans rien retirer
+            au texte. */}
+        {finalStatus === "completed" && (
+          <img
+            src="/images/celebrations/seance-terminee.gif"
+            alt=""
+            className="celebration-gif mx-auto h-28 w-28"
+          />
+        )}
         <h2 className="font-semibold text-primary-900">
           {finalStatus === "completed"
             ? "Séance enregistrée, bravo !"

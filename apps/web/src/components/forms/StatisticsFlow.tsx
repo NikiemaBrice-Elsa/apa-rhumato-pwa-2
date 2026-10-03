@@ -295,7 +295,22 @@ export function StatisticsFlow() {
             niveau reste toujours une action volontaire de votre part.
           </p>
           {progressSuccess && (
-            <p className="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-800">{progressSuccess}</p>
+            <>
+              {/* Sprint 37 (03/10/2026, instruction directe de Dr Nikiema) :
+                  GIF purement décoratif, affiché au moment où le niveau
+                  change RÉELLEMENT (après confirmation ci-dessous), pas
+                  seulement quand il devient accessible (bannière du tableau
+                  de bord, ProgressionGaugeCard.tsx — moment différent,
+                  volontairement laissé sans GIF). `alt=""` : l'information
+                  est déjà portée par le texte juste après (§57, §59).
+                  Masqué sous `prefers-reduced-motion` (voir globals.css). */}
+              <img
+                src="/images/celebrations/niveau-debloque.gif"
+                alt=""
+                className="celebration-gif mx-auto h-28 w-28"
+              />
+              <p className="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-800">{progressSuccess}</p>
+            </>
           )}
           {progressError && (
             <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
