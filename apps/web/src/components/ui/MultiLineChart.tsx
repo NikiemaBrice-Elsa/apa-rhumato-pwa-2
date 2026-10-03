@@ -15,16 +15,41 @@
  * alerte, vert = progression), validée séparabilité daltonisme/vision normale
  * (voir la review associée à ce sprint).
  *
- * Une valeur `null` dans une série "troue" la ligne à cette position plutôt
- * que de l'interpoler ou de la fabriquer (§57, §59 : ne jamais deviner une
- * valeur non enregistrée).
+ * Sprint 38 (05/10/2026, instruction directe de Dr Nikiema après relecture
+ * en production) : « La courbe d'évolution de la douleur doit comporter deux
+ * tracés [...] Joindre les valeurs sur les points des tracés. » Avant ce
+ * correctif, une valeur `null` « trouait » la ligne à sa position (pensé
+ * pour une grandeur mesurée isolément dans le temps, ex. le poids) — mais
+ * pour une paire avant/après liée à un même événement, où l'un des deux
+ * n'est pas toujours renseigné, cette règle fragmentait les deux séries en
+ * une multitude de petits segments illisibles plutôt que de montrer deux
+ * tracés clairs. Désormais, chaque série relie directement SES points
+ * réellement enregistrés, sans s'interrompre à cause d'une date où seule
+ * l'autre série a une valeur. Aucune valeur n'est pour autant inventée
+ * (§57, §59) : seuls des points RÉELLEMENT enregistrés sont tracés et
+ * reliés — relier deux points connus à travers une date sans donnée est une
+ * convention de lecture usuelle (tout graphique en courbes le fait dès
+ * qu'une mesure manque), jamais une valeur fabriquée aux points
+ * intermédiaires, qui eux restent vides. La valeur de chaque point est en
+ * outre désormais affichée à côté de lui (pas seulement dans la ligne
+ * récapitulative du bas), pour rester lisible même si les traces se
+ * croisent.
  */
 export interface MultiLineSeries {
   name: string;
-  /** Même longueur que `xLabels` ; `null` = pas de valeur à ce point. */
+  /** Même longueur que `xLabels` ; `null` = pas de valeur enregistrée à ce
+   * point précis pour CETTE série (une autre série peut très bien avoir une
+   * valeur à la même position — voir le Sprint 38 ci-dessus). */
   values: (number | null)[];
   colorClassName: "text-primary-700" | "text-teal-600";
 }
+
+/** Décalage vertical de l'étiquette de valeur par rapport au point : la
+ * première série s'affiche au-dessus, la seconde en dessous, pour limiter
+ * les collisions quand les deux séries partagent une même date (ex. douleur
+ * avant/après d'une même séance) — Sprint 38. */
+const VALUE_LABEL_OFFSET_ABOVE = -6;
+const VALUE_LABEL_OFFSET_BELOW = 14;
 
 export function MultiLineChart({
   xLabels,
@@ -65,38 +90,41 @@ export function MultiLineChart({
         role="img"
         aria-label={`Graphique d'évolution : ${series.map((s) => s.name).join(", ")}`}
       >
-        {series.map((s) => {
-          // Une valeur manquante coupe la ligne en plusieurs segments plutôt
-          // que de relier deux points qui n'ont rien à voir (§57, §59).
-          const segments: { x: number; y: number }[][] = [];
-          let current: { x: number; y: number }[] = [];
-          s.values.forEach((v, i) => {
-            if (v === null) {
-              if (current.length > 0) {
-                segments.push(current);
-                current = [];
-              }
-              return;
-            }
-            current.push({ x: xFor(i), y: yFor(v) });
-          });
-          if (current.length > 0) segments.push(current);
+        {series.map((s, seriesIndex) => {
+          // Chaque série relie directement ses propres points réellement
+          // enregistrés (Sprint 38) : les valeurs null sont simplement
+          // omises, jamais interpolées ni fabriquées (§57, §59).
+          const points = s.values
+            .map((v, i) => (v === null ? null : { x: xFor(i), y: yFor(v), value: v }))
+            .filter((p): p is { x: number; y: number; value: number } => p !== null);
+
+          const path = points.map((p, i) => `${i === 0 ? "M" : "L"}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
+          const labelDy = seriesIndex === 0 ? VALUE_LABEL_OFFSET_ABOVE : VALUE_LABEL_OFFSET_BELOW;
 
           return (
             <g key={s.name} className={s.colorClassName}>
-              {segments.map((seg, si) => (
-                <path
-                  key={si}
-                  d={seg.map((c, i) => `${i === 0 ? "M" : "L"}${c.x.toFixed(1)},${c.y.toFixed(1)}`).join(" ")}
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                  strokeLinecap="round"
-                />
-              ))}
-              {s.values.map((v, i) =>
-                v === null ? null : <circle key={i} cx={xFor(i)} cy={yFor(v)} r={3} fill="currentColor" />
+              {points.length >= 2 && (
+                <path d={path} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" />
               )}
+              {points.map((p, i) => (
+                <circle key={i} cx={p.x} cy={p.y} r={3} fill="currentColor" />
+              ))}
+              {/* Valeur affichée à côté de chaque point (Sprint 38 : « joindre
+                  les valeurs sur les points des tracés »), au-dessus pour la
+                  première série et en dessous pour la seconde afin de
+                  limiter les collisions. */}
+              {points.map((p, i) => (
+                <text
+                  key={`label-${i}`}
+                  x={p.x}
+                  y={p.y + labelDy}
+                  textAnchor="middle"
+                  fontSize={9}
+                  fill="currentColor"
+                >
+                  {p.value}
+                </text>
+              ))}
             </g>
           );
         })}

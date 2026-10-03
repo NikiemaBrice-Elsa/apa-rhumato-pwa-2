@@ -1,44 +1,42 @@
 import { describe, expect, it } from "vitest";
-import { buildChartSegments, computeValueRange, hasAnyChartData } from "../chart";
+import { buildSeriesPoints, computeValueRange, hasAnyChartData } from "../chart";
 
-describe("buildChartSegments (Sprint 36)", () => {
+describe("buildSeriesPoints (Sprint 38)", () => {
   const xFor = (i: number) => i * 10;
   const yFor = (v: number) => v * 2;
 
   it("retourne un tableau vide sans aucune valeur", () => {
-    expect(buildChartSegments([], xFor, yFor)).toEqual([]);
+    expect(buildSeriesPoints([], xFor, yFor)).toEqual([]);
   });
 
-  it("produit un seul segment quand aucune valeur n'est nulle", () => {
-    const segments = buildChartSegments([1, 2, 3], xFor, yFor);
-    expect(segments).toEqual([
-      [
-        { x: 0, y: 2 },
-        { x: 10, y: 4 },
-        { x: 20, y: 6 },
-      ],
+  it("garde un point par valeur non nulle, dans l'ordre, avec sa valeur d'origine", () => {
+    const points = buildSeriesPoints([1, 2, 3], xFor, yFor);
+    expect(points).toEqual([
+      { x: 0, y: 2, value: 1 },
+      { x: 10, y: 4, value: 2 },
+      { x: 20, y: 6, value: 3 },
     ]);
   });
 
-  it("coupe la ligne à chaque valeur null plutôt que de l'interpoler (§57, §59)", () => {
-    const segments = buildChartSegments([1, null, 3, 4, null, null, 7], xFor, yFor);
-    expect(segments).toEqual([
-      [{ x: 0, y: 2 }],
-      [
-        { x: 20, y: 6 },
-        { x: 30, y: 8 },
-      ],
-      [{ x: 60, y: 14 }],
+  it("ignore les valeurs null sans rien fabriquer à leur place (§57, §59) — la série reste composée uniquement de points réellement enregistrés", () => {
+    const points = buildSeriesPoints([1, null, 3, 4, null, null, 7], xFor, yFor);
+    expect(points).toEqual([
+      { x: 0, y: 2, value: 1 },
+      { x: 20, y: 6, value: 3 },
+      { x: 30, y: 8, value: 4 },
+      { x: 60, y: 14, value: 7 },
     ]);
   });
 
-  it("ignore les valeurs null en tête et en fin de série", () => {
-    const segments = buildChartSegments([null, 5, null], xFor, yFor);
-    expect(segments).toEqual([[{ x: 10, y: 10 }]]);
+  it("ne coupe plus la série en segments : les points de part et d'autre d'un trou restent dans le même tableau, prêts à être reliés directement (Sprint 38 — avant/après ne sont plus fragmentés)", () => {
+    const points = buildSeriesPoints([5, null, null, 8], xFor, yFor);
+    expect(points).toHaveLength(2);
+    expect(points[0].value).toBe(5);
+    expect(points[1].value).toBe(8);
   });
 
   it("retourne un tableau vide quand toutes les valeurs sont null", () => {
-    expect(buildChartSegments([null, null], xFor, yFor)).toEqual([]);
+    expect(buildSeriesPoints([null, null], xFor, yFor)).toEqual([]);
   });
 });
 

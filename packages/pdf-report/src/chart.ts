@@ -5,15 +5,34 @@
  * apparaître » — le Sprint 35 avait ajouté les courbes à deux séries dans
  * l'application (`MultiLineChart.tsx`) mais jamais dans le rapport PDF
  * lui-même (`report.ts` ne faisait qu'afficher du texte). Ce module porte
- * exactement la même logique visuelle que `MultiLineChart.tsx`
+ * la même logique visuelle que `MultiLineChart.tsx`
  * (apps/web/src/components/ui/MultiLineChart.tsx) dans l'API de dessin
  * vectoriel de pdfkit plutôt qu'en SVG : mêmes couleurs fixes par série,
- * même légende toujours présente à partir de deux séries, même règle de
- * « trou » sur une valeur `null` plutôt que de l'interpoler ou de la
- * fabriquer (§57, §59).
+ * même légende toujours présente à partir de deux séries.
  *
- * La géométrie pure (segments, étendue des valeurs) est séparée du dessin
- * pdfkit pour rester testable sans avoir à générer un PDF (voir
+ * Sprint 38 (05/10/2026, instruction directe de Dr Nikiema après relecture
+ * du rapport douleur avant/après en production) : « La courbe d'évolution
+ * de la douleur doit comporter deux tracés [...] Joindre les valeurs sur
+ * les points des tracés. » Deux changements par rapport au Sprint 36 :
+ * (1) une série relie désormais directement ses points réellement
+ * enregistrés, SANS couper la ligne sur les dates où seule l'AUTRE série a
+ * une valeur (ex. douleur « après » non recueillie pour une séance qui a
+ * seulement une douleur « avant ») — l'ancienne règle de « trou » sur
+ * chaque `null`, pensée pour une grandeur mesurée isolément dans le temps
+ * (poids, tension...), fragmentait au contraire une paire avant/après liée
+ * à un même événement en une multitude de segments illisibles dès que l'un
+ * des deux n'était pas toujours renseigné. Aucune valeur n'est pour autant
+ * inventée (§57, §59) : seuls des points RÉELLEMENT enregistrés sont
+ * tracés et reliés entre eux — relier deux points connus à travers une date
+ * sans donnée est une convention de lecture usuelle (tout graphique en
+ * courbes le fait dès qu'une mesure manque), jamais une valeur fabriquée
+ * aux points intermédiaires, qui eux restent vides. (2) la valeur de chaque
+ * point est désormais affichée à côté de lui (pas seulement dans la ligne
+ * récapitulative en bas du graphique), pour rester lisible même si les
+ * traces se croisent ou se superposent.
+ *
+ * La géométrie pure (points par série, étendue des valeurs) est séparée du
+ * dessin pdfkit pour rester testable sans avoir à générer un PDF (voir
  * `__tests__/chart.test.ts`) — même esprit que le reste de ce paquet, qui
  * ne fait aucun calcul médical.
  */
@@ -31,42 +50,41 @@ const TEXT_MUTED_COLOR = "#2e6fd6";
 
 export interface PdfChartSeries {
   name: string;
-  /** Même longueur que `xLabels` ; `null` = pas de valeur à ce point. */
+  /** Même longueur que `xLabels` ; `null` = pas de valeur enregistrée à ce
+   * point précis pour CETTE série (une autre série peut très bien avoir une
+   * valeur à la même position — voir le Sprint 38 en tête de fichier). */
   values: (number | null)[];
   color: string;
 }
 
-export interface PdfChartPoint {
+/** Un point RÉELLEMENT enregistré d'une série, déjà converti en coordonnées
+ * de dessin — jamais un point fabriqué pour combler une absence de donnée
+ * (§57, §59). */
+export interface PdfChartPlottedPoint {
   x: number;
   y: number;
+  value: number;
 }
 
 /**
- * Découpe une série en segments contigus, en coupant la ligne à chaque
- * valeur `null` plutôt que de relier deux points qui n'ont rien à voir
- * (§57, §59 : ne jamais deviner une valeur non enregistrée) — identique à
- * la logique de `MultiLineChart.tsx`. Fonction pure, testée indépendamment
- * du rendu pdfkit.
+ * Ne garde que les valeurs réellement enregistrées d'une série (filtre les
+ * `null`) et les convertit en points de dessin — une série se trace donc en
+ * reliant directement ses propres points connus, sans jamais s'interrompre
+ * à cause d'une autre série ni fabriquer de valeur manquante (Sprint 38,
+ * voir le commentaire en tête de fichier). Fonction pure, testée
+ * indépendamment du rendu pdfkit.
  */
-export function buildChartSegments(
+export function buildSeriesPoints(
   values: (number | null)[],
   xFor: (i: number) => number,
   yFor: (v: number) => number
-): PdfChartPoint[][] {
-  const segments: PdfChartPoint[][] = [];
-  let current: PdfChartPoint[] = [];
+): PdfChartPlottedPoint[] {
+  const points: PdfChartPlottedPoint[] = [];
   values.forEach((v, i) => {
-    if (v === null) {
-      if (current.length > 0) {
-        segments.push(current);
-        current = [];
-      }
-      return;
-    }
-    current.push({ x: xFor(i), y: yFor(v) });
+    if (v === null) return;
+    points.push({ x: xFor(i), y: yFor(v), value: v });
   });
-  if (current.length > 0) segments.push(current);
-  return segments;
+  return points;
 }
 
 /**
@@ -91,6 +109,12 @@ const PLOT_PADDING = 16;
 /** Hauteur maximale réservée (zone de tracé + légende + ligne de dates) pour
  * la décision de saut de page ci-dessous — volontairement généreuse. */
 const RESERVED_HEIGHT = PLOT_HEIGHT + 45;
+/** Décalage vertical de l'étiquette de valeur par rapport au point : la
+ * première série s'affiche au-dessus, la seconde en dessous, pour limiter
+ * les collisions quand les deux séries partagent une même date (ex. douleur
+ * avant/après d'une même séance) — Sprint 38. */
+const VALUE_LABEL_OFFSET_ABOVE = -9;
+const VALUE_LABEL_OFFSET_BELOW = 4;
 
 /**
  * Dessine un graphique multi-séries directement dans le document pdfkit en
@@ -135,25 +159,49 @@ export function drawMultiLineChart(
     return top + PLOT_HEIGHT - PLOT_PADDING - ((v - min) / range) * (PLOT_HEIGHT - 2 * PLOT_PADDING);
   }
 
-  // Tracé des lignes + points, une série à la fois (couleur fixe, jamais
-  // réattribuée ni cyclique — voir CHART_COLOR_PRIMARY/SECONDARY ci-dessus).
+  // Tracé des lignes + points + étiquette de valeur, une série à la fois
+  // (couleur fixe, jamais réattribuée ni cyclique — voir
+  // CHART_COLOR_PRIMARY/SECONDARY ci-dessus). Chaque série relie directement
+  // SES points réellement enregistrés (Sprint 38) : pas d'interruption à
+  // cause d'une date où seule l'autre série a une valeur.
   doc.save();
-  for (const s of series) {
-    const segments = buildChartSegments(s.values, xFor, yFor);
-    doc.lineWidth(2).lineCap("round").strokeColor(s.color);
-    for (const segment of segments) {
-      if (segment.length < 2) continue;
-      doc.moveTo(segment[0].x, segment[0].y);
-      for (let i = 1; i < segment.length; i++) doc.lineTo(segment[i].x, segment[i].y);
+  series.forEach((s, seriesIndex) => {
+    const points = buildSeriesPoints(s.values, xFor, yFor);
+    if (points.length >= 2) {
+      doc.lineWidth(2).lineCap("round").strokeColor(s.color);
+      doc.moveTo(points[0].x, points[0].y);
+      for (let i = 1; i < points.length; i++) doc.lineTo(points[i].x, points[i].y);
       doc.stroke();
     }
-    s.values.forEach((v, i) => {
-      if (v === null) return;
-      doc.circle(xFor(i), yFor(v), 2.5).fill(s.color);
-    });
-  }
-  doc.restore();
+    for (const p of points) {
+      doc.circle(p.x, p.y, 2.5).fill(s.color);
+    }
 
+    // Étiquette de valeur à côté de chaque point (Sprint 38 : « joindre les
+    // valeurs sur les points des tracés ») — au-dessus pour la première
+    // série, en dessous pour la seconde, afin de limiter les collisions
+    // quand les deux séries partagent une même date.
+    const labelOffsetY = seriesIndex === 0 ? VALUE_LABEL_OFFSET_ABOVE : VALUE_LABEL_OFFSET_BELOW;
+    doc.fontSize(7).fillColor(s.color);
+    for (const p of points) {
+      doc.text(String(p.value), p.x - 6, p.y + labelOffsetY, { lineBreak: false });
+    }
+  });
+  doc.restore();
+  doc.fillColor("#000000").fontSize(11);
+
+  // `doc.text(str, x, y, …)` en position explicite (ci-dessus, pour chaque
+  // étiquette) laisse le curseur de texte flottant (`doc.x`/`doc.y`) là où
+  // cette dernière étiquette a été posée — `doc.save()`/`doc.restore()` ne
+  // couvre PAS ce curseur (seulement les couleurs/épaisseurs de trait, voir
+  // la remarque déjà faite pour le logo plus haut dans ce fichier). Sans
+  // cette réinitialisation explicite des DEUX coordonnées, tout le texte
+  // normal qui suit (sections « Mesures », « Courbes de suivi »...) hérite
+  // d'un `doc.x` resté quelque part au milieu du graphique et se retrouve
+  // enveloppé sur une largeur minuscule, mot par mot — bogue réel détecté
+  // par Dr Nikiema en production (Sprint 38) : le texte des sections
+  // suivantes apparaissait haché en fragments de quelques lettres.
+  doc.x = left;
   doc.y = top + PLOT_HEIGHT + 6;
 
   // Légende : toujours présente à partir de deux séries (une seule série
