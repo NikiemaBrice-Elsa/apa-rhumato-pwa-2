@@ -35,9 +35,13 @@ interface ProgramExerciseTabsProps {
  * Les exercices affichés sont ceux du programme VALIDÉ réellement assigné à
  * la pathologie (`program_exercises`, même source que le démarrage d'une
  * séance en direct — voir apps/web/src/app/(dashboard)/programme/page.tsx),
- * jamais une liste théorique : si aucun exercice validé n'existe encore pour
- * un onglet donné, l'écran le dit explicitement plutôt que d'afficher un
- * onglet vide sans explication (§57, §59, §78).
+ * jamais une liste théorique (§57, §59, §78).
+ *
+ * Sprint 39 (04/10/2026, instruction directe de Dr Nikiema) : « Supprimer la
+ * mention "Aucun exercice validé n'est encore disponible pour « Renforcement
+ * musculaire » pour cette pathologie" ». Quand un onglet n'a aucun exercice
+ * validé, il n'affiche donc plus rien sous les onglets (aucun exercice n'est
+ * inventé pour autant : seule la phrase explicative est retirée).
  */
 export function ProgramExerciseTabs({ aerobique, renforcement }: ProgramExerciseTabsProps) {
   const lists: Record<ExerciseTypeTab, ProgramExerciseView[]> = { aerobique, renforcement };
@@ -65,11 +69,7 @@ export function ProgramExerciseTabs({ aerobique, renforcement }: ProgramExercise
           </button>
         ))}
       </div>
-      {activeExercises.length === 0 ? (
-        <p className="text-sm text-primary-500">
-          Aucun exercice validé n&apos;est encore disponible pour « {TAB_LABELS_FR[tab]} » pour cette pathologie.
-        </p>
-      ) : (
+      {activeExercises.length > 0 && (
         <ul className="flex flex-col gap-2">
           {activeExercises.map((ex) => (
             <li key={ex.exerciseId} className="rounded-lg border border-primary-200 bg-white p-3">

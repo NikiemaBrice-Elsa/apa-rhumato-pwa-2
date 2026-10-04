@@ -9,20 +9,34 @@
  * décision (progression, alerte) ne dépend de cette table (§57, §59).
  */
 
-export const PHYSICAL_ACTIVITY_TYPES = ["marche", "velo", "aerobie", "fitness", "natation", "autre"] as const;
+/**
+ * Sprint 39 (04/10/2026, instruction directe de Dr Nikiema) : « Dans la liste
+ * des activités physiques il faut ajouter "Renforcement musculaire" » —
+ * type sans suivi GPS (compte à rebours uniquement), comme aérobie/fitness.
+ */
+export const PHYSICAL_ACTIVITY_TYPES = [
+  "marche",
+  "velo",
+  "aerobie",
+  "renforcement_musculaire",
+  "fitness",
+  "natation",
+  "autre",
+] as const;
 export type PhysicalActivityType = (typeof PHYSICAL_ACTIVITY_TYPES)[number];
 
 export const PHYSICAL_ACTIVITY_TYPE_LABELS_FR: Record<PhysicalActivityType, string> = {
   marche: "Marche",
   velo: "Vélo",
   aerobie: "Aérobie",
+  renforcement_musculaire: "Renforcement musculaire",
   fitness: "Fitness",
   natation: "Natation",
   autre: "Autre",
 };
 
 /** Types pour lesquels un suivi de distance par GPS a un sens (Sprint 25) —
- * les autres (aérobie, fitness, natation, autre) utilisent uniquement le
+ * les autres (aérobie, renforcement musculaire, fitness, natation, autre) utilisent uniquement le
  * compte à rebours, sans distance. */
 export const GPS_TRACKED_ACTIVITY_TYPES: ReadonlySet<PhysicalActivityType> = new Set(["marche", "velo"]);
 
@@ -110,4 +124,36 @@ export function computeAveragePhysicalActivityHoursPerWeek(
 
   // Arrondi à 2 décimales pour un affichage lisible (ex. 1.25 h/semaine).
   return Math.round((totalHours / periodWeeks) * 100) / 100;
+}
+
+export interface SessionForActivityTotal {
+  status: string;
+  startedAt: string;
+  completedAt: string | null | undefined;
+}
+
+/**
+ * Durées (en secondes) des séances d'exercices RÉELLEMENT terminées — séances
+ * guidées en direct (« Démarrer une séance ») et séances déclarées hors de
+ * l'application (« Déclarer une séance ») — pour les additionner aux activités
+ * libres (chronomètre, marche/vélo) dans la moyenne hebdomadaire du rapport
+ * (Sprint 39, 04/10/2026, instruction directe de Dr Nikiema : « je veux que la
+ * durée de toute activité réalisée aussi dans "mon programme, démarrer une
+ * séance, déclarer une séance faite hors de l'appli" soit comptabilisée »).
+ *
+ * Ne retient que les séances `completed` dont les deux horodatages sont
+ * valides et dont la durée est strictement positive : une séance sans durée
+ * connue (ex. déclarée sans durée, `started_at` = `completed_at`) contribue
+ * pour 0 et n'est donc jamais comptée à une durée devinée (§57, §59).
+ */
+export function completedSessionDurationsSeconds(sessions: SessionForActivityTotal[]): number[] {
+  const durations: number[] = [];
+  for (const session of sessions) {
+    if (session.status !== "completed" || !session.completedAt) continue;
+    const start = new Date(session.startedAt).getTime();
+    const end = new Date(session.completedAt).getTime();
+    if (Number.isNaN(start) || Number.isNaN(end) || end <= start) continue;
+    durations.push(Math.round((end - start) / 1000));
+  }
+  return durations;
 }

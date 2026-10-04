@@ -17,10 +17,12 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
  * `started_at`/`completed_at` sont tous deux fixés à midi (heure non
  * connue — jamais une heure précise inventée, §57/§59) le jour déclaré :
  * cela donne une durée de séance de 0 minute plutôt qu'une durée devinée.
- * `sessionDurationMinutes` (packages/domain/src/statistics.ts) continuera
- * donc à afficher une durée nulle pour ces séances déclarées a posteriori —
- * c'est le comportement honnête attendu tant qu'aucune durée réelle n'est
- * connue, pas un bug.
+ * `sessionDurationMinutes` (packages/domain/src/statistics.ts) continue
+ * donc à afficher une durée nulle pour une séance déclarée SANS durée — c'est
+ * le comportement honnête attendu tant qu'aucune durée réelle n'est connue,
+ * pas un bug. Depuis le Sprint 39 (04/10/2026), le patient peut indiquer la
+ * durée (`durationMinutes`, facultative) : `completed_at` vaut alors midi +
+ * cette durée, et la séance est comptée dans les totaux de durée.
  *
  * Même garanties de sécurité que les deux routes existantes qu'elle
  * remplace pour ce cas d'usage : le programme validé de l'utilisateur est
@@ -65,6 +67,7 @@ export async function POST(request: Request) {
     fatigueApres,
     ressenti,
     completedExerciseIds,
+    durationMinutes,
   } = parsed.data;
 
   const { data: assignment } = await supabase
@@ -115,6 +118,17 @@ export async function POST(request: Request) {
   // documenté plutôt qu'une heure inventée — voir le commentaire d'en-tête.
   const declaredAt = `${date}T12:00:00.000`;
 
+  // Sprint 39 (04/10/2026, instruction directe de Dr Nikiema : « la durée de
+  // toute activité réalisée [...] déclarer une séance faite hors de l'appli
+  // [doit être] comptabilisée ») : si le patient a indiqué la durée, la fin de
+  // séance vaut midi + cette durée réelle déclarée, ce qui permet à
+  // `sessionDurationMinutes` de la retrouver. Sans durée déclarée, la fin
+  // reste égale au début (durée nulle) — jamais une durée devinée (§57, §59).
+  const completedAt =
+    realisee && durationMinutes
+      ? new Date(new Date(declaredAt).getTime() + durationMinutes * 60_000).toISOString()
+      : declaredAt;
+
   const { data: session, error } = await supabase
     .from("sessions")
     .insert({
@@ -132,7 +146,7 @@ export async function POST(request: Request) {
       ressenti: ressenti ?? null,
       completion_level: completionLevel,
       started_at: declaredAt,
-      completed_at: declaredAt,
+      completed_at: completedAt,
     })
     .select("id, status, started_at, completed_at")
     .single();

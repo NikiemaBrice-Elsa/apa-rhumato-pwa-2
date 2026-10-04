@@ -208,6 +208,11 @@ export const declareSessionSchema = z
     fatigueApres: z.number().int().min(0).max(10).optional(),
     ressenti: z.string().max(2000).optional(),
     completedExerciseIds: z.array(z.string().uuid()).optional(),
+    // Sprint 39 (04/10/2026, instruction directe de Dr Nikiema) : durée de la
+    // séance faite hors application, facultative (jamais devinée si le patient
+    // ne la connaît pas) — plafonnée à 6 h comme `physicalActivitySchema`
+    // (garde-fou anti saisie aberrante, pas une limite clinique).
+    durationMinutes: z.number().int().positive().max(6 * 60).optional(),
   })
   .refine((data) => data.realisee || data.difficulte === undefined, {
     message: "La difficulté ne peut être renseignée que si la séance a été réalisée.",
@@ -225,6 +230,10 @@ export const declareSessionSchema = z
   .refine((data) => new Date(`${data.date}T00:00:00.000`).getTime() <= Date.now(), {
     message: "La date ne peut pas être dans le futur.",
     path: ["date"],
+  })
+  .refine((data) => data.realisee || data.durationMinutes === undefined, {
+    message: "La durée ne peut être renseignée que si la séance a été réalisée.",
+    path: ["durationMinutes"],
   });
 
 export type DeclareSessionInput = z.infer<typeof declareSessionSchema>;

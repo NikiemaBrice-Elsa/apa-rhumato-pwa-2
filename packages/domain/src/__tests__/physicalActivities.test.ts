@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  completedSessionDurationsSeconds,
   computeAveragePhysicalActivityHoursPerWeek,
   formatActivityDurationLabel,
   isGpsTrackedActivityType,
@@ -9,8 +10,17 @@ import {
 } from "../physicalActivities";
 
 describe("PHYSICAL_ACTIVITY_TYPES (Sprint 26)", () => {
-  it("couvre les six types demandés par Dr Nikiema le 21/09/2026", () => {
-    expect(PHYSICAL_ACTIVITY_TYPES).toEqual(["marche", "velo", "aerobie", "fitness", "natation", "autre"]);
+  it("couvre les six types demandés le 21/09/2026 plus « renforcement musculaire » (Sprint 39)", () => {
+    expect(PHYSICAL_ACTIVITY_TYPES).toEqual([
+      "marche",
+      "velo",
+      "aerobie",
+      "renforcement_musculaire",
+      "fitness",
+      "natation",
+      "autre",
+    ]);
+    expect(PHYSICAL_ACTIVITY_TYPE_LABELS_FR.renforcement_musculaire).toBe("Renforcement musculaire");
   });
 
   it("chaque type a un libellé FR", () => {
@@ -26,8 +36,9 @@ describe("isGpsTrackedActivityType", () => {
     expect(isGpsTrackedActivityType("velo")).toBe(true);
   });
 
-  it("aérobie, fitness, natation et autre n'utilisent pas le GPS", () => {
+  it("aérobie, renforcement musculaire, fitness, natation et autre n'utilisent pas le GPS", () => {
     expect(isGpsTrackedActivityType("aerobie")).toBe(false);
+    expect(isGpsTrackedActivityType("renforcement_musculaire")).toBe(false);
     expect(isGpsTrackedActivityType("fitness")).toBe(false);
     expect(isGpsTrackedActivityType("natation")).toBe(false);
     expect(isGpsTrackedActivityType("autre")).toBe(false);
@@ -113,5 +124,44 @@ describe("computeAveragePhysicalActivityHoursPerWeek (Sprint 35)", () => {
     });
     // 1000s = 0.2777...h sur 1 semaine -> arrondi à 0.28.
     expect(result).toBe(0.28);
+  });
+});
+
+describe("completedSessionDurationsSeconds (Sprint 39)", () => {
+  it("retourne la durée en secondes des séances terminées avec des horodatages valides", () => {
+    expect(
+      completedSessionDurationsSeconds([
+        { status: "completed", startedAt: "2026-09-01T10:00:00Z", completedAt: "2026-09-01T10:30:00Z" },
+        { status: "completed", startedAt: "2026-09-02T10:00:00Z", completedAt: "2026-09-02T10:20:30Z" },
+      ])
+    ).toEqual([1800, 1230]);
+  });
+
+  it("ignore les séances non terminées (abandonnées, en cours)", () => {
+    expect(
+      completedSessionDurationsSeconds([
+        { status: "abandoned", startedAt: "2026-09-01T10:00:00Z", completedAt: "2026-09-01T10:30:00Z" },
+        { status: "started", startedAt: "2026-09-01T10:00:00Z", completedAt: null },
+        { status: "completed", startedAt: "2026-09-01T10:00:00Z", completedAt: undefined },
+      ])
+    ).toEqual([]);
+  });
+
+  it("ne compte jamais une durée devinée : séance sans durée (début = fin) ou horodatages invalides ignorés", () => {
+    expect(
+      completedSessionDurationsSeconds([
+        { status: "completed", startedAt: "2026-09-01T12:00:00Z", completedAt: "2026-09-01T12:00:00Z" },
+        { status: "completed", startedAt: "2026-09-01T12:30:00Z", completedAt: "2026-09-01T12:00:00Z" },
+        { status: "completed", startedAt: "pas une date", completedAt: "2026-09-01T12:00:00Z" },
+      ])
+    ).toEqual([]);
+  });
+
+  it("une séance déclarée avec une durée (fin = début + durée) est comptée", () => {
+    expect(
+      completedSessionDurationsSeconds([
+        { status: "completed", startedAt: "2026-09-01T12:00:00.000Z", completedAt: "2026-09-01T12:45:00.000Z" },
+      ])
+    ).toEqual([2700]);
   });
 });

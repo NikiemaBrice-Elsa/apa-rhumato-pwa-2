@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { getDictionary } from "@/lib/i18n";
 import { RecoveryRedirect } from "@/components/RecoveryRedirect";
+import { InstallPrompt } from "@/components/InstallPrompt";
 
 const dict = getDictionary();
 
@@ -28,6 +29,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="fr">
       <body>
         <RecoveryRedirect />
+        {/* Sprint 39 : carte « Installer l'application » (voir InstallPrompt.tsx). */}
+        <InstallPrompt />
         {children}
         <script
           // Enregistrement du service worker (§10). Stratégie de cache

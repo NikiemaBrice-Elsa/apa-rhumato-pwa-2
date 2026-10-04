@@ -11,6 +11,7 @@ import {
   formatWalkDistanceLabel,
   describeSessionPreAlertSignals,
   computeAveragePhysicalActivityHoursPerWeek,
+  completedSessionDurationsSeconds,
   type PathologyCode,
   type PhysicalActivityType,
   type ObjectiveCode,
@@ -84,6 +85,7 @@ export async function buildPatientReportData(
     { data: physicalActivities },
     { data: assignment },
     { data: preAlertCancellations },
+    { data: allPathologySessions },
   ] =
     await Promise.all([
       supabase.from("users").select("first_name, last_name").eq("id", userId).maybeSingle(),
@@ -142,6 +144,21 @@ export async function buildPatientReportData(
         .gte("created_at", from.toISOString())
         .lte("created_at", to.toISOString())
         .order("created_at", { ascending: true }),
+      // Sprint 39 (04/10/2026, instruction directe de Dr Nikiema : « je veux
+      // que la durée de toute activité réalisée aussi dans "mon programme,
+      // démarrer une séance, déclarer une séance faite hors de l'appli" soit
+      // comptabilisée ») : séances de TOUTES les pathologies sur la période,
+      // pour la seule moyenne hebdomadaire d'activité ci-dessous — comme
+      // `physical_activities`, cette moyenne n'est pas rattachée à une
+      // pathologie particulière (« toute activité réalisée »). Les sections
+      // « Activité »/« Douleur »/« Observations » du rapport restent, elles,
+      // scopées à la pathologie du rapport (requête `sessions` plus haut).
+      supabase
+        .from("sessions")
+        .select("status, started_at, completed_at")
+        .eq("user_id", userId)
+        .gte("started_at", from.toISOString())
+        .lte("started_at", to.toISOString()),
     ]);
 
   const allSessions = sessions ?? [];
@@ -224,8 +241,20 @@ export async function buildPatientReportData(
     // calculée sur les mêmes activités que `physicalActivities` ci-dessus et
     // la même période que le reste du rapport — aucun recalcul, aucune
     // nouvelle requête.
+    // Sprint 39 : inclut désormais aussi la durée des séances d'exercices
+    // terminées (en direct ou déclarées hors application), en plus des
+    // activités libres (chronomètre, marche/vélo).
     physicalActivityWeeklyAverageHours: computeAveragePhysicalActivityHoursPerWeek(
-      (physicalActivities ?? []).map((a) => ({ durationSeconds: a.duration_seconds })),
+      [
+        ...(physicalActivities ?? []).map((a) => ({ durationSeconds: a.duration_seconds })),
+        ...completedSessionDurationsSeconds(
+          (allPathologySessions ?? []).map((s) => ({
+            status: s.status,
+            startedAt: s.started_at,
+            completedAt: s.completed_at,
+          }))
+        ).map((durationSeconds) => ({ durationSeconds })),
+      ],
       { from: from.toISOString(), to: to.toISOString() }
     ),
     observations: allSessions

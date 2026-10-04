@@ -401,9 +401,12 @@ export function buildPatientReportPdf(data: PatientReportData): Promise<Buffer> 
     }
     // Moyenne hebdomadaire (Sprint 35, 30/09/2026, instruction directe de Dr
     // Nikiema), affichée juste après le détail ci-dessus, qu'il y ait ou non
-    // des activités enregistrées.
+    // des activités enregistrées. Depuis le Sprint 39 (04/10/2026), elle
+    // inclut aussi la durée des séances d'exercices terminées (en direct ou
+    // déclarées hors application) — d'où le libellé « séances et activités
+    // confondues ».
     doc.text(
-      `Durée moyenne d'activité physique : ${
+      `Durée moyenne d'activité physique (séances et activités confondues) : ${
         data.physicalActivityWeeklyAverageHours === null
           ? "non disponible (période invalide)"
           : `${data.physicalActivityWeeklyAverageHours} h/semaine`

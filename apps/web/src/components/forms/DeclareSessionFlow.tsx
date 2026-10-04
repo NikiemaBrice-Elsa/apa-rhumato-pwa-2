@@ -72,6 +72,7 @@ export function DeclareSessionFlow() {
   const [douleurApres, setDouleurApres] = useState(0);
   const [fatigueApres, setFatigueApres] = useState(0);
   const [ressenti, setRessenti] = useState("");
+  const [durationMinutes, setDurationMinutes] = useState("");
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -131,6 +132,7 @@ export function DeclareSessionFlow() {
       fatigueApres: realisee ? fatigueApres : undefined,
       ressenti: ressenti || undefined,
       completedExerciseIds: realisee ? Array.from(completedExerciseIds) : undefined,
+      durationMinutes: realisee && durationMinutes ? Number(durationMinutes) : undefined,
     };
   }
 
@@ -276,6 +278,25 @@ export function DeclareSessionFlow() {
 
         {realisee && (
           <>
+            <div className="flex flex-col gap-1">
+              <label className="font-medium text-primary-900" htmlFor="declare-duration">
+                Durée de la séance (en minutes)
+              </label>
+              <input
+                id="declare-duration"
+                type="number"
+                inputMode="numeric"
+                min={1}
+                max={360}
+                step={1}
+                className="input"
+                value={durationMinutes}
+                onChange={(e) => setDurationMinutes(e.target.value)}
+              />
+              <span className="text-xs text-primary-500">
+                Facultatif, mais nécessaire pour que cette séance soit comptée dans votre durée d&apos;activité.
+              </span>
+            </div>
             <div className="flex flex-col gap-1">
               <label className="font-medium text-primary-900">Difficulté ressentie</label>
               <div className="flex flex-col gap-1 text-sm">
